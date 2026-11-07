@@ -7,127 +7,84 @@ kernel compilado para Arrow Lake (`-march=native`) · Hyprland com identidade Ar
 
 ---
 
-## Fase 0 — Preparação (ainda no Windows)
+## 0. Preparação (ainda no Windows)
 
 1. **Backup** de tudo que importa no C:.
-2. **Baixar a ISO** em <https://archlinux.org/download/> (mirror do Brasil) e o `sha256sums.txt`.
-   Conferir no PowerShell:
-   ```powershell
-   Get-FileHash .\archlinux-*-x86_64.iso -Algorithm SHA256
+2. **Gerar a ISO personalizada** pelo WSL Arch (como root):
+   ```bash
+   cd /mnt/c/Users/<você>/Projects/arch-linux
+   bash iso/build.sh                                               # Wi-Fi perguntado no boot
+   # ou: WIFI_SSID="MinhaRede" WIFI_PASS="senha" bash iso/build.sh  # Wi-Fi embutido
    ```
-   O hash precisa bater com o do `sha256sums.txt`.
-3. **Pendrive com Ventoy** (<https://www.ventoy.net>): instale o Ventoy no pendrive (apaga o pendrive)
-   e copie a ISO para ele. Os scripts são baixados do GitHub durante a instalação.
+   Resultado: `iso/out/archlinux-vivobook-*.iso`.
+   > A ISO com Wi-Fi embutido guarda a senha da rede em texto puro — não compartilhe.
+3. **Pendrive com Ventoy** (<https://www.ventoy.net>): instale o Ventoy (apaga o pendrive) e copie a ISO.
+   Vale copiar também a ISO oficial do Arch como reserva.
 4. **BIOS** (ligar segurando **F2**, depois **F7** para o modo avançado):
-   - `Security → Secure Boot → Secure Boot Control` = **Disabled**
    - `Advanced → VMD setup menu → Enable VMD controller` = **Disabled**
    - `Boot → Fast Boot` = **Disabled**
+   - `Security → Secure Boot → Key Management` → **apagar todas as chaves** (*Setup Mode*).
+     Isso desliga o Secure Boot e deixa o instalador registrar as chaves próprias.
+     Se preferir não mexer agora, apenas deixe `Secure Boot Control` = **Disabled**.
    - Salvar e sair (**F10**).
 
-## Fase 1 — Instalação base (pendrive)
+## 1. Instalação (tudo numa etapa)
 
-### Opção A — ISO personalizada (automática)
+Ligue segurando **Esc** e escolha o pendrive → *archlinux-vivobook*. O assistente abre sozinho:
 
-Gere no Windows, pelo WSL Arch (como root):
+1. Teclado ABNT2 e **Wi-Fi** (escolha a rede e digite a senha, ou conecta sozinho se embutido).
+2. Baixa a versão mais nova dos scripts do GitHub (ou usa a cópia embutida).
+3. **Perguntas — todas no início:**
+   - usuário, nome do computador, senha do usuário, senha do root, senha do disco (LUKS);
+   - instalar Hyprland + visual Arch? · compilar o kernel otimizado? · configurar Secure Boot + TPM?
+   - resumo e confirmação digitando `APAGAR`.
+4. **Daí em diante segue sozinho** (~45–60 min com o kernel; mantenha na tomada):
+   base criptografada → Wi-Fi salvo no sistema → Hyprland/visual Arch → kernel `-march=native` →
+   chaves do Secure Boot e assinaturas.
+5. No fim aparece a **chave de recuperação do disco** — **fotografe/anote e guarde fora do notebook**.
+   Remova o pendrive e pressione Enter para reiniciar.
 
-```bash
-cd /mnt/c/Users/<você>/Projects/arch-linux
-bash iso/build.sh                                        # Wi-Fi perguntado no boot
-# ou: WIFI_SSID="MinhaRede" WIFI_PASS="senha" bash iso/build.sh   # Wi-Fi embutido
-```
+> Sem a ISO personalizada (ISO oficial): `loadkeys br-abnt2`, conecte com `iwctl`, depois
+> `pacman -Sy --noconfirm git && git clone https://github.com/wendelmax/arch-vivobook-s14 /root/arch-linux && bash /root/arch-linux/scripts/install.sh`.
 
-Copie `iso/out/archlinux-vivobook-*.iso` para o pendrive Ventoy. No boot, o assistente abre sozinho:
-teclado ABNT2 → Wi-Fi → baixa os scripts mais recentes do GitHub (ou usa os embutidos) →
-`install.sh` → reinicia. Você só digita usuário, `APAGAR`, a senha do LUKS e as senhas.
+## 2. Primeiros boots (Secure Boot + TPM)
 
-> A ISO com Wi-Fi embutido contém a senha da rede em texto puro — não compartilhe.
+O serviço `vivobook-secureboot` conclui sozinho; os avisos aparecem como notificação no Hyprland.
 
-### Opção B — ISO oficial (manual)
+| Situação no fim da instalação | O que fazer |
+|---|---|
+| Chaves já registradas (BIOS estava em Setup Mode) | 1º reboot: BIOS (F2) → `Secure Boot Control` = **Enabled**. Digite a senha do disco uma última vez; o TPM é registrado. Do boot seguinte em diante, desbloqueio automático. |
+| BIOS não estava em Setup Mode | BIOS → Key Management → apagar chaves → boot (o sistema registra as chaves) → reboot → BIOS → **Enabled** → boot (TPM registrado). |
 
-Ligue segurando **Esc** e escolha o pendrive → Arch Linux.
+A senha do disco e a chave de recuperação continuam valendo se o TPM recusar (ex.: após atualizar o BIOS).
 
-```bash
-loadkeys br-abnt2
-
-# Wi-Fi
-iwctl
-  device list                       # normalmente wlan0
-  station wlan0 scan
-  station wlan0 connect "NOME_DA_REDE"
-  exit
-ping -c2 archlinux.org
-
-# Baixar os scripts
-pacman -Sy --noconfirm git
-git clone https://github.com/wendelmax/arch-vivobook-s14 /root/arch-linux
-
-# Instalar (pergunta usuário, confirmação "APAGAR", senha do LUKS e senhas)
-bash /root/arch-linux/scripts/install.sh
-```
-
-> Sem GitHub? Copie esta pasta para o pendrive Ventoy e use
-> `mkdir -p /root/usb && mount -L Ventoy /root/usb && cp -r /root/usb/arch-linux /root/`.
-> Se o mount falhar, use um segundo pendrive FAT32 (`lsblk`, depois `mount /dev/sdX1 /root/usb`).
-
-Ao terminar:
-
-```bash
-umount -R /mnt && cryptsetup close cryptroot && reboot
-```
-
-## Fase 2 — Primeiro boot
-
-1. Digite a **senha do LUKS** (teclado já em ABNT2).
-2. Entre com seu usuário no console e conecte o Wi-Fi:
-   ```bash
-   nmcli device wifi connect "NOME_DA_REDE" --ask
-   ```
-3. Rode a pós-instalação (Hyprland, áudio, Bluetooth, energia, snapshots, bateria a 80%, visual Arch):
-   ```bash
-   ~/arch-linux/scripts/post-install.sh
-   sudo reboot
-   ```
-4. No **tuigreet**, escolha a sessão **Hyprland (uwsm-managed)** (F3 alterna sessões).
-
+No **tuigreet**, escolha a sessão **Hyprland (uwsm-managed)** (F3 alterna sessões).
 Atalhos: `SUPER+Q` terminal · `SUPER+R` menu · `SUPER+E` arquivos · `SUPER+C` fecha janela ·
 `SUPER+L` bloqueia · `Print` captura de área. Clique no logo do Arch na barra para abrir o menu.
 
-## Fase 3 — Kernel otimizado
+## 3. Manutenção e etapas manuais
 
+Se alguma etapa foi pulada ou falhou (o resumo final e `/var/log/vivobook-install.log` mostram), rode depois:
+
+| Etapa | Comando |
+|---|---|
+| Hyprland + visual Arch + apps | `~/arch-linux/scripts/post-install.sh` |
+| Kernel otimizado | `~/arch-linux/scripts/build-kernel.sh` (~30–40 min, ~25 GB livres) |
+| Secure Boot (Setup Mode) | `sudo ~/arch-linux/scripts/secureboot-tpm.sh keys` |
+| TPM (com Secure Boot ativo) | `sudo ~/arch-linux/scripts/secureboot-tpm.sh tpm` |
+
+**Conferir o kernel:**
 ```bash
-~/arch-linux/scripts/build-kernel.sh      # ~30–40 min, ~25 GB livres
-sudo reboot
-```
-
-Conferir:
-
-```bash
-uname -r                                           # deve conter "cachyos"
+uname -r                                                  # deve conter "cachyos"
 zcat /proc/config.gz | grep -E 'X86_NATIVE_CPU|MNATIVE'   # =y → compilado para este CPU
 ```
-
 O `linux-lts` continua no menu do systemd-boot como reserva (o menu aparece por 3 s no boot).
 
-**Atualizar o kernel:** rode o mesmo script de novo (ele faz `git pull` e recompila).
-Faça isso a cada poucas semanas ou quando sair correção importante.
+**Atualizar o kernel:** rode `build-kernel.sh` de novo (faz `git pull` e recompila) a cada poucas semanas.
 
-**Build mais rápido (opcional):** instale `modprobed-db` (`paru -S modprobed-db`), use o notebook
-alguns dias com tudo que costuma plugar (`modprobed-db store`), depois compile com
-`LOCALMOD=y ~/arch-linux/scripts/build-kernel.sh`. Dispositivos nunca vistos podem não ter driver.
-
-## Fase 4 — Secure Boot + desbloqueio automático pelo TPM
-
-1. BIOS (**F2**) → `Security → Secure Boot → Key Management` → **apagar todas as chaves**
-   (entra em *Setup Mode*). Salvar e iniciar o Arch.
-2. ```bash
-   sudo ~/arch-linux/scripts/secureboot-tpm.sh keys
-   ```
-3. Reinicie → BIOS → `Secure Boot Control` = **Enabled** → iniciar o Arch (ainda pede senha).
-4. ```bash
-   sudo ~/arch-linux/scripts/secureboot-tpm.sh tpm
-   ```
-   **Anote a chave de recuperação** e guarde fora do notebook.
-5. Reinicie: o disco desbloqueia sozinho. A senha do LUKS continua valendo como alternativa.
+**Build mais rápido (opcional):** `paru -S modprobed-db`, use o notebook alguns dias com tudo que costuma
+plugar (`modprobed-db store`) e compile com `LOCALMOD=y ~/arch-linux/scripts/build-kernel.sh`.
+Dispositivos nunca vistos podem ficar sem driver.
 
 ---
 

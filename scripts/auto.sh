@@ -39,7 +39,11 @@ until online; do
   read -rsp "Senha: " PASS; echo
   iwctl --passphrase "$PASS" station "$WIFI" connect "$SSID"
   for _ in $(seq 1 10); do online && break; sleep 1; done
-  online || echo "Não conectou. Tente novamente."
+  if online; then
+    export WIFI_SSID="$SSID" WIFI_PASS="$PASS"   # install.sh salva no sistema instalado
+  else
+    echo "Não conectou. Tente novamente."
+  fi
 done
 echo "==> Conectado."
 

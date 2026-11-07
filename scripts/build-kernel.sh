@@ -9,6 +9,7 @@
 # Variáveis opcionais:
 #   LOCALMOD=y   compila só os módulos em uso (requer modprobed-db, ~3x mais rápido)
 #   BUILD_DIR=…  diretório de build (padrão ~/build, precisa de ~25 GB)
+#   NONINTERACTIVE=1  sem perguntas (usado pelo install.sh no chroot)
 set -euo pipefail
 
 BUILD_DIR="${BUILD_DIR:-$HOME/build}"
@@ -54,7 +55,9 @@ PRESETS=('default')
 default_uki="${UKI}"
 EOF
 
-makepkg --syncdeps --install --cleanbuild --clean
+MK=(--syncdeps --install --cleanbuild --clean)
+[[ -n ${NONINTERACTIVE:-} ]] && MK+=(--noconfirm)
+makepkg "${MK[@]}"
 
 # Torna o kernel otimizado o padrão no systemd-boot (linux-lts fica de reserva)
 sudo sed -i -E "s|^default .*|default arch-${PKGBASE}.efi|" /efi/loader/loader.conf
