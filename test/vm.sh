@@ -111,7 +111,8 @@ cmd_install() {
 cmd_boot() {
   prepare
   qemu_common
-  "${QEMU[@]}" -serial file:"$VM/serial-boot.log" -daemonize -pidfile "$VM/qemu.pid"
+  # VM_SERIAL=none simula o notebook (sem porta serial, que faz o Plymouth usar modo texto)
+  "${QEMU[@]}" -serial "${VM_SERIAL:-file:$VM/serial-boot.log}" -daemonize -pidfile "$VM/qemu.pid"
   echo "==> VM iniciada (pid $(cat "$VM/qemu.pid")). Use: type/key/shot/stop"
 }
 

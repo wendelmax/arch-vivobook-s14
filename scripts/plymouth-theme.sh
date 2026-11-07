@@ -49,9 +49,13 @@ if [[ -f $CONF ]] && ! grep -q 'plymouth' "$CONF"; then
   sed -i 's/(base systemd /(base systemd plymouth /' "$CONF"
 fi
 
-# "splash" na linha de comando embutida na UKI
-if [[ -f /etc/kernel/cmdline ]] && ! grep -qw splash /etc/kernel/cmdline; then
-  sed -i 's/$/ splash/' /etc/kernel/cmdline
+# "splash" na linha de comando embutida na UKI. ignore-serial-consoles evita o
+# modo texto quando o firmware anuncia console serial (o systemd-stub adiciona
+# console=uart... nesse caso, e o Plymouth então desiste do modo gráfico).
+if [[ -f /etc/kernel/cmdline ]]; then
+  grep -qw splash /etc/kernel/cmdline || sed -i 's/$/ splash/' /etc/kernel/cmdline
+  grep -q 'plymouth.ignore-serial-consoles' /etc/kernel/cmdline \
+    || sed -i 's/$/ plymouth.ignore-serial-consoles/' /etc/kernel/cmdline
 fi
 
 # greetd só assume o tty1 depois que o Plymouth sai da tela
