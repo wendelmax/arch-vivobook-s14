@@ -86,7 +86,7 @@ cmd_install() {
 
   # Repositório (commit atual) + respostas servidos por HTTP para a VM
   rm -rf "$VM/www/repo.git"
-  git clone -q --bare "$REPO_DIR" "$VM/www/repo.git"
+  git -c safe.directory='*' clone -q --bare "$REPO_DIR" "$VM/www/repo.git"
   git -C "$VM/www/repo.git" update-server-info
   cp "$SCRIPT_DIR/answers.env" "$VM/www/answers.env"
   echo "VB_REPO_URL=http://10.0.2.2:$PORT/repo.git" >> "$VM/www/answers.env"
