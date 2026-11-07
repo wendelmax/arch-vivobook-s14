@@ -8,6 +8,8 @@
 #
 # ATENÇÃO: APAGA TODO O DISCO definido em DISK.
 # Variáveis opcionais: DISK, HOST_NAME, TIMEZONE, KEYMAP, LOCALE, WIFI_SSID, WIFI_PASS
+# Respostas prontas (sem perguntas): VB_USERNAME, VB_HOSTNAME, VB_USER_PASS,
+#   VB_ROOT_PASS, VB_LUKS_PASS, VB_POST, VB_KERNEL, VB_SB (1/0), VB_CONFIRM=APAGAR
 set -euo pipefail
 
 DISK="${DISK:-/dev/nvme0n1}"
@@ -85,21 +87,32 @@ cat <<'EOF'
 =====================================================================
 EOF
 
-until [[ ${USERNAME:-} =~ ^[a-z_][a-z0-9_-]*$ ]]; do
+# Cada resposta pode vir pronta de uma variável VB_* (modo sem perguntas,
+# usado por "vivobook.answers=" no boot e pelos testes em VM).
+yes_or_ask() {   # $1 = valor VB_* (1/0 ou vazio), $2 = pergunta
+  if [[ -n $1 ]]; then [[ $1 == 1 ]]; else ask_yes "$2"; fi
+}
+
+USERNAME="${VB_USERNAME:-}"
+until [[ $USERNAME =~ ^[a-z_][a-z0-9_-]*$ ]]; do
   read -rp "Nome do usuário (minúsculas): " USERNAME
 done
-read -rp "Nome do computador [$HOST_NAME]: " h; HOST_NAME="${h:-$HOST_NAME}"
-USER_PASS="$(ask_secret "Senha do usuário $USERNAME")"
-ROOT_PASS="$(ask_secret "Senha do root (administração/emergência)")"
-LUKS_PASS="$(ask_secret "Senha da criptografia do disco (pedida no boot até o TPM ser ativado)")"
+if [[ -n ${VB_HOSTNAME:-} ]]; then
+  HOST_NAME="$VB_HOSTNAME"
+else
+  read -rp "Nome do computador [$HOST_NAME]: " h; HOST_NAME="${h:-$HOST_NAME}"
+fi
+USER_PASS="${VB_USER_PASS:-$(ask_secret "Senha do usuário $USERNAME")}"
+ROOT_PASS="${VB_ROOT_PASS:-$(ask_secret "Senha do root (administração/emergência)")}"
+LUKS_PASS="${VB_LUKS_PASS:-$(ask_secret "Senha da criptografia do disco (pedida no boot até o TPM ser ativado)")}"
 
 echo
-ask_yes "Instalar Hyprland + visual Arch + apps (pós-instalação)?" && DO_POST=1 || DO_POST=0
-ask_yes "Compilar o kernel otimizado para este CPU agora (+30–40 min)?" && DO_KERNEL=1 || DO_KERNEL=0
-ask_yes "Configurar Secure Boot + desbloqueio automático pelo TPM?" && DO_SB=1 || DO_SB=0
+yes_or_ask "${VB_POST:-}"   "Instalar Hyprland + visual Arch + apps (pós-instalação)?"      && DO_POST=1   || DO_POST=0
+yes_or_ask "${VB_KERNEL:-}" "Compilar o kernel otimizado para este CPU agora (+30–40 min)?" && DO_KERNEL=1 || DO_KERNEL=0
+yes_or_ask "${VB_SB:-}"     "Configurar Secure Boot + desbloqueio automático pelo TPM?"     && DO_SB=1     || DO_SB=0
 
 [[ -n ${WIFI_SSID:-} ]] || detect_iwd_wifi
-if [[ -z ${WIFI_SSID:-} ]] && ask_yes "Salvar uma rede Wi-Fi no sistema instalado?"; then
+if [[ -z ${WIFI_SSID:-} && -z ${VB_CONFIRM:-} ]] && ask_yes "Salvar uma rede Wi-Fi no sistema instalado?"; then
   read -rp "  SSID: " WIFI_SSID
   WIFI_PASS="$(ask_secret "  Senha do Wi-Fi")"
 fi
@@ -115,7 +128,8 @@ echo "  Secure Boot/TPM . $( ((DO_SB))     && echo sim || echo não)"
 echo
 lsblk -o NAME,SIZE,MODEL,FSTYPE,LABEL "$DISK"
 echo
-read -rp "Digite APAGAR para começar: " confirm
+confirm="${VB_CONFIRM:-}"
+[[ -n $confirm ]] || read -rp "Digite APAGAR para começar: " confirm
 [[ $confirm == APAGAR ]] || die "cancelado"
 
 # A partir daqui tudo vai para o log (senhas nunca são impressas)
