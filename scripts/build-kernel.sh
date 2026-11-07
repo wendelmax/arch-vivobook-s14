@@ -23,6 +23,7 @@ BUILD_ONLY="${BUILD_ONLY:-}"
 
 mkdir -p "$BUILD_DIR"
 if [[ -d $BUILD_DIR/linux-cachyos/.git ]]; then
+  git -C "$BUILD_DIR/linux-cachyos" checkout -- .   # desfaz o ajuste de somas de builds anteriores
   git -C "$BUILD_DIR/linux-cachyos" pull --ff-only
 else
   git clone --depth 1 "$REPO_URL" "$BUILD_DIR/linux-cachyos"
@@ -68,6 +69,30 @@ missing_versioned_deps() {
   done < <(awk -F' = ' '/^\tmakedepends = .*>=/ {print $2}' <<<"$1")
 }
 
+# O PKGBUILD lista as somas b2 só para a configuração padrão (com LTO); sem LTO
+# uma fonte some (dkms-clang.patch) e o makepkg recusa por tamanho diferente.
+# Reescreve b2sums com as somas OFICIAIS de cada fonte da configuração atual,
+# casadas pelo nome a partir da configuração padrão (sem pular verificação).
+realign_b2sums() {
+  local default_info="$1" cur_info="$2" s i
+  local -A sum=()
+  local -a srcs sums cur new=()
+  mapfile -t srcs < <(awk -F' = ' '/^\tsource = / {print $2}' <<<"$default_info")
+  mapfile -t sums < <(awk -F' = ' '/^\tb2sums = / {print $2}' <<<"$default_info")
+  (( ${#srcs[@]} == ${#sums[@]} )) || { echo "somas b2 desalinhadas também no PKGBUILD padrão" >&2; return 1; }
+  for i in "${!srcs[@]}"; do sum[${srcs[$i]}]="${sums[$i]}"; done
+  mapfile -t cur < <(awk -F' = ' '/^\tsource = / {print $2}' <<<"$cur_info")
+  for s in "${cur[@]}"; do
+    [[ -n ${sum[$s]:-} ]] || { echo "sem soma oficial para a fonte: $s" >&2; return 1; }
+    new+=("'${sum[$s]}'")
+  done
+  awk -v repl="b2sums=(${new[*]})" '
+    /^b2sums=\(/ { skip = 1; print repl }
+    skip { if (/\)[[:space:]]*$/) skip = 0; next }
+    { print }' PKGBUILD > PKGBUILD.new
+  mv PKGBUILD.new PKGBUILD
+}
+
 # (sem pipe direto para o awk: ele sai cedo e o SIGPIPE derruba o script com pipefail)
 SRCINFO="$(makepkg --printsrcinfo)"
 MISSING="$(missing_versioned_deps "$SRCINFO")"
@@ -75,10 +100,27 @@ if [[ -n $MISSING && $_use_llvm_lto != none ]]; then
   echo "AVISO: o build com Clang/ThinLTO precisa de versões que o Arch ainda não publicou:" >&2
   sed 's/^/  - /' <<<"$MISSING" >&2
   echo "AVISO: compilando com GCC (-march=native continua; só o ThinLTO fica de fora)." >&2
+  DEFAULT_SRCINFO="$SRCINFO"
   export _use_llvm_lto=none
   SRCINFO="$(makepkg --printsrcinfo)"
+  n_src="$(grep -c $'^\tsource = ' <<<"$SRCINFO" || true)"
+  n_sum="$(grep -c $'^\tb2sums = ' <<<"$SRCINFO" || true)"
+  if (( n_src != n_sum )); then
+    realign_b2sums "$DEFAULT_SRCINFO" "$SRCINFO"
+    SRCINFO="$(makepkg --printsrcinfo)"
+  fi
 fi
 PKGBASE="$(awk -F' = ' '/^pkgbase/ {print $2; exit}' <<<"$SRCINFO")"
+
+# Chaves PGP dos mantenedores (validpgpkeys do PKGBUILD, por impressão digital
+# completa) para o makepkg verificar a assinatura do código-fonte do kernel
+mapfile -t PGP_KEYS < <(awk -F' = ' '/^\tvalidpgpkeys = / {print $2}' <<<"$SRCINFO")
+for key in "${PGP_KEYS[@]}"; do
+  gpg --list-keys "$key" &>/dev/null && continue
+  gpg --keyserver hkps://keyserver.ubuntu.com --recv-keys "$key" \
+    || gpg --keyserver hkps://keys.openpgp.org --recv-keys "$key" \
+    || echo "AVISO: não foi possível importar a chave PGP $key" >&2
+done
 [[ -n $PKGBASE ]] || { echo "não foi possível ler o pkgbase do PKGBUILD" >&2; exit 1; }
 
 if [[ -n $BUILD_ONLY ]]; then
