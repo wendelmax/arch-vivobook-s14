@@ -26,6 +26,24 @@ kernel compilado para Arrow Lake (`-march=native`) · Hyprland com identidade Ar
 
 ## Fase 1 — Instalação base (pendrive)
 
+### Opção A — ISO personalizada (automática)
+
+Gere no Windows, pelo WSL Arch (como root):
+
+```bash
+cd /mnt/c/Users/<você>/Projects/arch-linux
+bash iso/build.sh                                        # Wi-Fi perguntado no boot
+# ou: WIFI_SSID="MinhaRede" WIFI_PASS="senha" bash iso/build.sh   # Wi-Fi embutido
+```
+
+Copie `iso/out/archlinux-vivobook-*.iso` para o pendrive Ventoy. No boot, o assistente abre sozinho:
+teclado ABNT2 → Wi-Fi → baixa os scripts mais recentes do GitHub (ou usa os embutidos) →
+`install.sh` → reinicia. Você só digita usuário, `APAGAR`, a senha do LUKS e as senhas.
+
+> A ISO com Wi-Fi embutido contém a senha da rede em texto puro — não compartilhe.
+
+### Opção B — ISO oficial (manual)
+
 Ligue segurando **Esc** e escolha o pendrive → Arch Linux.
 
 ```bash
