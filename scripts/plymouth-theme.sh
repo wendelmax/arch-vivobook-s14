@@ -3,6 +3,7 @@
 # senha do disco pedida na tela gráfica. Baseado no tema "spinner" oficial.
 # Executar como root (também funciona dentro do arch-chroot). Idempotente.
 set -euo pipefail
+trap 'echo "ERRO: plymouth-theme.sh linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"

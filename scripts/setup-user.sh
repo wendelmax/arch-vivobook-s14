@@ -3,6 +3,7 @@
 # Executar como o usuário comum (também via "sudo -u USER -H" no chroot).
 #   NONINTERACTIVE=1  não pergunta nada ao makepkg
 set -euo pipefail
+trap 'echo "ERRO: setup-user.sh linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"

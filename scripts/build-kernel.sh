@@ -10,11 +10,14 @@
 #   LOCALMOD=y   compila só os módulos em uso (requer modprobed-db, ~3x mais rápido)
 #   BUILD_DIR=…  diretório de build (padrão ~/build, precisa de ~25 GB)
 #   NONINTERACTIVE=1  sem perguntas (usado pelo install.sh no chroot)
+#   BUILD_ONLY=1 só compila (pacotes ficam no diretório de build), sem instalar
 set -euo pipefail
+trap 'echo "ERRO: build-kernel.sh linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 BUILD_DIR="${BUILD_DIR:-$HOME/build}"
 REPO_URL="https://github.com/CachyOS/linux-cachyos.git"
 LOCALMOD="${LOCALMOD:-n}"
+BUILD_ONLY="${BUILD_ONLY:-}"
 
 [[ $EUID -ne 0 ]] || { echo "não execute como root" >&2; exit 1; }
 
@@ -35,16 +38,37 @@ else
   echo "AVISO: opção 'native' não encontrada no PKGBUILD — verifique _processor_opt" >&2
 fi
 
+# Opções do PKGBUILD do CachyOS (ele compara com "yes"/"no")
 export _use_llvm_lto=thin      # Clang + ThinLTO
-export _HZ_ticks=1000          # latência baixa p/ desktop
-export _preempt=full
+export _preempt=full           # latência baixa p/ desktop
 export _tickrate=full
 export _hugepage=always
-export _localmodcfg="$LOCALMOD"
-export _build_zfs=n _build_nvidia=n _build_nvidia_open=n
+export _build_zfs=no _build_nvidia_open=no
 export MAKEFLAGS="-j$(nproc)"
+if [[ $LOCALMOD =~ ^(y|yes|1)$ ]]; then
+  export _localmodcfg=yes
+  for db in "${XDG_DATA_HOME:-$HOME/.local/share}/modprobed-db/modprobed.db" "$HOME/.config/modprobed.db"; do
+    [[ -f $db ]] && { export _localmodcfg_path="$db"; break; }
+  done
+  [[ -n ${_localmodcfg_path:-} ]] || { echo "LOCALMOD=y, mas a base do modprobed-db não foi encontrada" >&2; exit 1; }
+else
+  export _localmodcfg=no
+fi
 
-PKGBASE="$(makepkg --printsrcinfo | awk -F' = ' '/^pkgbase/ {print $2; exit}')"
+# (sem pipe direto para o awk: ele sai cedo e o SIGPIPE derruba o script com pipefail)
+SRCINFO="$(makepkg --printsrcinfo)"
+PKGBASE="$(awk -F' = ' '/^pkgbase/ {print $2; exit}' <<<"$SRCINFO")"
+[[ -n $PKGBASE ]] || { echo "não foi possível ler o pkgbase do PKGBUILD" >&2; exit 1; }
+
+if [[ -n $BUILD_ONLY ]]; then
+  echo "==> pkgbase: $PKGBASE | processor_opt: ${_processor_opt:-?} | só compilação"
+  MK=(--syncdeps --cleanbuild)
+  [[ -n ${NONINTERACTIVE:-} ]] && MK+=(--noconfirm)
+  makepkg "${MK[@]}"
+  ls -1 ./*.pkg.tar.zst
+  exit 0
+fi
+
 ESP="$(sudo bootctl --print-esp-path 2>/dev/null || echo /efi)"
 UKI="${ESP}/EFI/Linux/arch-${PKGBASE}.efi"
 echo "==> pkgbase: $PKGBASE | processor_opt: ${_processor_opt:-?} | UKI: $UKI"
