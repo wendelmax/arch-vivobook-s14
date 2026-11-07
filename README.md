@@ -36,11 +36,15 @@ O passo a passo está em **[GUIA.md](GUIA.md)**.
 ## Estrutura
 
 ```
-iso/build.sh                Gera ISO personalizada com instalador automático (rodar no WSL Arch)
-scripts/auto.sh             Assistente do boot: teclado, Wi-Fi, scripts atualizados, install.sh
-scripts/install.sh          Fase 1 — live ISO: particiona, criptografa, instala base
-scripts/post-install.sh     Fase 2 — Hyprland, serviços, snapper, visual Arch
-scripts/build-kernel.sh     Fase 3 — compila o kernel otimizado
-scripts/secureboot-tpm.sh   Fase 4 — Secure Boot + TPM2
+iso/build.sh                     Gera ISO personalizada com instalador automático (rodar no WSL Arch)
+scripts/auto.sh                  Assistente do boot: teclado, Wi-Fi, scripts atualizados, install.sh
+scripts/install.sh               Instalação completa: perguntas no início, depois base + Wi-Fi +
+                                 pós-instalação + kernel + Secure Boot, sem intervenção
+scripts/setup-system.sh          Pós-instalação, parte root (pacotes, serviços, snapper, bateria)
+scripts/setup-user.sh            Pós-instalação, parte usuário (paru, configs Hyprland/visual Arch)
+scripts/post-install.sh          Roda as duas partes acima manualmente, se a etapa foi pulada
+scripts/build-kernel.sh          Compila o kernel otimizado
+scripts/firstboot-secureboot.sh  Serviço de boot: registra chaves do Secure Boot e o TPM2
+scripts/secureboot-tpm.sh        Secure Boot + TPM2 manual
 config/                     Hyprland, Waybar, Mako, Kitty, ajuste opcional do Wi-Fi
 ```

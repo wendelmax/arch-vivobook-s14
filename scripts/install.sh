@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Fase 1 — instalação base do Arch Linux no ASUS Vivobook S14 (S3407CA).
+# Instalação completa do Arch Linux no ASUS Vivobook S14 (S3407CA).
 # Executar como root no ambiente live do Arch ISO.
 #
-#   LUKS2 + Btrfs (subvolumes p/ snapper) + systemd-boot + UKI + linux-lts
+# Todas as perguntas são feitas no início; depois a instalação segue sozinha:
+#   base (LUKS2 + Btrfs + systemd-boot + UKI + linux-lts) → Wi-Fi salvo →
+#   [Hyprland + visual Arch] → [kernel -march=native] → [Secure Boot + TPM2]
 #
 # ATENÇÃO: APAGA TODO O DISCO definido em DISK.
+# Variáveis opcionais: DISK, HOST_NAME, TIMEZONE, KEYMAP, LOCALE, WIFI_SSID, WIFI_PASS
 set -euo pipefail
 
 DISK="${DISK:-/dev/nvme0n1}"
@@ -13,6 +16,8 @@ TIMEZONE="${TIMEZONE:-America/Sao_Paulo}"
 KEYMAP="${KEYMAP:-br-abnt2}"
 LOCALE="${LOCALE:-pt_BR.UTF-8}"
 MOUNT_OPTS="noatime,compress=zstd:1"
+LOG=/root/vivobook-install.log
+GUID=8be4df61-93ca-11d2-aa0d-00e098032b8c
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
@@ -27,7 +32,39 @@ PACKAGES=(
 
 die()  { echo "ERRO: $*" >&2; exit 1; }
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
+WARNINGS=()
+warn() { echo "AVISO: $*" >&2; WARNINGS+=("$*"); }
 
+ask_secret() {   # $1 = descrição; imprime a senha confirmada em stdout
+  local a b
+  while :; do
+    read -rsp "$1: " a; echo >&2
+    read -rsp "Repita: " b; echo >&2
+    [[ -n $a && $a == "$b" ]] && { printf '%s' "$a"; return; }
+    echo "Senhas vazias ou diferentes, tente de novo." >&2
+  done
+}
+ask_yes() { local a; read -rp "$1 [S/n] " a; [[ -z $a || $a =~ ^[SsYy] ]]; }
+efivar_is_1() {
+  local f="/sys/firmware/efi/efivars/$1-$GUID"
+  [[ -r $f ]] && [[ $(od -An -t u1 "$f" | awk '{print $NF}') == 1 ]]
+}
+
+# Wi-Fi conectado no live via iwd (quando não veio por WIFI_SSID/WIFI_PASS)
+detect_iwd_wifi() {
+  local f name pass
+  for f in /var/lib/iwd/*.psk; do
+    [[ -f $f ]] || continue
+    pass="$(sed -n 's/^Passphrase=//p' "$f")"
+    [[ -n $pass ]] || continue
+    name="$(basename "$f" .psk)"
+    if [[ $name == =* ]]; then name="$(printf '%s' "${name#=}" | sed 's/../\\x&/g')"; name="$(printf '%b' "$name")"; fi
+    WIFI_SSID="$name"; WIFI_PASS="$pass"
+    return
+  done
+}
+
+# ---------------------------------------------------------------- verificações
 [[ $EUID -eq 0 ]] || die "execute como root"
 [[ -d /sys/firmware/efi/efivars ]] || die "o sistema não iniciou em modo UEFI"
 [[ -b $DISK ]] || die "disco $DISK não encontrado (Intel VMD ainda ativo no BIOS?)"
@@ -39,15 +76,54 @@ else
   ESP="${DISK}1";  ROOT="${DISK}2"
 fi
 
-read -rp "Nome do usuário: " USERNAME
-[[ $USERNAME =~ ^[a-z_][a-z0-9_-]*$ ]] || die "nome de usuário inválido"
+# ---------------------------------------------------------------- perguntas
+cat <<'EOF'
 
+=====================================================================
+ Responda as perguntas abaixo. Depois disso a instalação segue sozinha
+ (a etapa do kernel otimizado leva ~30–40 min).
+=====================================================================
+EOF
+
+until [[ ${USERNAME:-} =~ ^[a-z_][a-z0-9_-]*$ ]]; do
+  read -rp "Nome do usuário (minúsculas): " USERNAME
+done
+read -rp "Nome do computador [$HOST_NAME]: " h; HOST_NAME="${h:-$HOST_NAME}"
+USER_PASS="$(ask_secret "Senha do usuário $USERNAME")"
+ROOT_PASS="$(ask_secret "Senha do root (administração/emergência)")"
+LUKS_PASS="$(ask_secret "Senha da criptografia do disco (pedida no boot até o TPM ser ativado)")"
+
+echo
+ask_yes "Instalar Hyprland + visual Arch + apps (pós-instalação)?" && DO_POST=1 || DO_POST=0
+ask_yes "Compilar o kernel otimizado para este CPU agora (+30–40 min)?" && DO_KERNEL=1 || DO_KERNEL=0
+ask_yes "Configurar Secure Boot + desbloqueio automático pelo TPM?" && DO_SB=1 || DO_SB=0
+
+[[ -n ${WIFI_SSID:-} ]] || detect_iwd_wifi
+if [[ -z ${WIFI_SSID:-} ]] && ask_yes "Salvar uma rede Wi-Fi no sistema instalado?"; then
+  read -rp "  SSID: " WIFI_SSID
+  WIFI_PASS="$(ask_secret "  Senha do Wi-Fi")"
+fi
+
+echo
+echo "Resumo:"
+echo "  Disco ........... $DISK (será APAGADO)"
+echo "  Usuário/host .... $USERNAME @ $HOST_NAME"
+echo "  Wi-Fi salvo ..... ${WIFI_SSID:-(nenhum)}"
+echo "  Pós-instalação .. $( ((DO_POST))   && echo sim || echo não)"
+echo "  Kernel nativo ... $( ((DO_KERNEL)) && echo sim || echo não)"
+echo "  Secure Boot/TPM . $( ((DO_SB))     && echo sim || echo não)"
+echo
 lsblk -o NAME,SIZE,MODEL,FSTYPE,LABEL "$DISK"
 echo
-echo "TODOS os dados em $DISK serão APAGADOS."
-read -rp "Digite APAGAR para continuar: " confirm
+read -rp "Digite APAGAR para começar: " confirm
 [[ $confirm == APAGAR ]] || die "cancelado"
 
+# A partir daqui tudo vai para o log (senhas nunca são impressas)
+exec > >(tee -a "$LOG") 2>&1
+cleanup() { rm -f /mnt/etc/sudoers.d/99-install 2>/dev/null || true; }
+trap cleanup EXIT
+
+# ---------------------------------------------------------------- base
 step "Relógio"
 timedatectl set-ntp true
 
@@ -63,10 +139,11 @@ udevadm settle
 step "Formatando partição EFI"
 mkfs.fat -F32 -n EFI "$ESP"
 
-step "Criptografia LUKS2 — escolha a senha de desbloqueio (guarde-a!)"
-cryptsetup luksFormat --type luks2 --label cryptroot "$ROOT"
-cryptsetup open --allow-discards --perf-no_read_workqueue --perf-no_write_workqueue \
-  --persistent "$ROOT" cryptroot
+step "Criptografia LUKS2"
+printf '%s' "$LUKS_PASS" | cryptsetup luksFormat --batch-mode --type luks2 \
+  --label cryptroot --key-file=- "$ROOT"
+printf '%s' "$LUKS_PASS" | cryptsetup open --key-file=- --allow-discards \
+  --perf-no_read_workqueue --perf-no_write_workqueue --persistent "$ROOT" cryptroot
 LUKS_UUID="$(cryptsetup luksUUID "$ROOT")"
 
 step "Btrfs + subvolumes"
@@ -89,7 +166,7 @@ mount -o umask=0077 "$ESP" /mnt/efi
 
 step "Espelhos (Brasil)"
 reflector --country Brazil --protocol https --latest 10 --sort rate \
-  --save /etc/pacman.d/mirrorlist || echo "aviso: reflector falhou, usando lista atual"
+  --save /etc/pacman.d/mirrorlist || warn "reflector falhou, usando a lista de espelhos atual"
 
 step "Instalando pacotes base"
 pacstrap -K /mnt "${PACKAGES[@]}"
@@ -166,18 +243,145 @@ editor no
 EOF
 
 step "Senhas"
-echo "Senha do root:"
-until arch-chroot /mnt passwd; do :; done
-echo "Senha do usuário $USERNAME:"
-until arch-chroot /mnt passwd "$USERNAME"; do :; done
+printf 'root:%s\n%s:%s\n' "$ROOT_PASS" "$USERNAME" "$USER_PASS" | arch-chroot /mnt chpasswd
 
 step "Copiando scripts para /home/$USERNAME/arch-linux"
 cp -r "$REPO_DIR" "/mnt/home/$USERNAME/arch-linux"
 arch-chroot /mnt chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/arch-linux"
+U_DIR="/home/$USERNAME/arch-linux/scripts"
 
-step "Pronto"
-cat <<EOF
-Instalação base concluída. Próximos passos:
-  umount -R /mnt && cryptsetup close cryptroot && reboot
-Depois do boot: entre como $USERNAME e siga o GUIA.md (Fase 2).
+# ---------------------------------------------------------------- Wi-Fi
+if [[ -n ${WIFI_SSID:-} && -n ${WIFI_PASS:-} ]]; then
+  step "Salvando Wi-Fi \"$WIFI_SSID\" no NetworkManager"
+  nm="/mnt/etc/NetworkManager/system-connections/wifi-$(printf '%s' "$WIFI_SSID" | tr -c 'A-Za-z0-9_-' '_').nmconnection"
+  cat > "$nm" <<EOF
+[connection]
+id=$WIFI_SSID
+type=wifi
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid=$WIFI_SSID
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=$WIFI_PASS
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto
 EOF
+  chmod 600 "$nm"
+fi
+
+# Etapas seguintes rodam como usuário e precisam de sudo sem senha (removido no fim)
+echo "$USERNAME ALL=(ALL:ALL) NOPASSWD: ALL" > /mnt/etc/sudoers.d/99-install
+chmod 440 /mnt/etc/sudoers.d/99-install
+
+# ---------------------------------------------------------------- Secure Boot (chaves)
+SB_ENROLLED=0
+if (( DO_SB )); then
+  step "Secure Boot: criando chaves (sbctl)"
+  arch-chroot /mnt sbctl create-keys
+  install -d -m 700 /mnt/var/lib/vivobook
+  if efivar_is_1 SetupMode; then
+    if arch-chroot /mnt sbctl enroll-keys --microsoft; then
+      SB_ENROLLED=1
+      touch /mnt/var/lib/vivobook/enrolled
+    else
+      warn "não foi possível registrar as chaves agora; o sistema tenta de novo no boot"
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------- pós-instalação
+if (( DO_POST )); then
+  step "Pós-instalação: sistema"
+  arch-chroot /mnt env NONINTERACTIVE=1 bash "$U_DIR/setup-system.sh" \
+    || warn "pós-instalação (sistema) falhou — rode ~/arch-linux/scripts/post-install.sh depois"
+  step "Pós-instalação: usuário"
+  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 bash "$U_DIR/setup-user.sh" \
+    || warn "pós-instalação (usuário) falhou — rode ~/arch-linux/scripts/post-install.sh depois"
+fi
+
+# ---------------------------------------------------------------- kernel
+if (( DO_KERNEL )); then
+  step "Kernel otimizado (-march=native) — ~30–40 min"
+  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 bash "$U_DIR/build-kernel.sh" \
+    || warn "compilação do kernel falhou — linux-lts segue como padrão; rode build-kernel.sh depois"
+fi
+
+# ---------------------------------------------------------------- Secure Boot (assinaturas + TPM)
+RECOVERY_KEY=""
+if (( DO_SB )); then
+  step "Secure Boot: assinando bootloader e kernels"
+  arch-chroot /mnt /bin/bash -e <<'EOF'
+sbctl sign -s -o /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+bootctl install --esp-path=/efi
+for f in /efi/EFI/Linux/*.efi; do sbctl sign -s "$f"; done
+sbctl verify || true
+EOF
+
+  step "TPM2: preparando registro automático no primeiro boot com Secure Boot ativo"
+  KEY=/mnt/var/lib/vivobook/enroll.key
+  dd if=/dev/urandom of="$KEY" bs=64 count=1 status=none
+  chmod 400 "$KEY"
+  printf '%s' "$LUKS_PASS" | cryptsetup luksAddKey --batch-mode --key-file=- "$ROOT" "$KEY"
+  RECOVERY_KEY="$(systemd-cryptenroll --unlock-key-file="$KEY" --recovery-key "$ROOT" 2>/dev/null \
+    | grep -Eo '([cbdefghijklnrtuv]{8}-){7}[cbdefghijklnrtuv]{8}' | head -1 || true)"
+  [[ -n $RECOVERY_KEY ]] || warn "não foi possível gerar a chave de recuperação; gere depois com: sudo systemd-cryptenroll /dev/disk/by-partlabel/cryptroot --recovery-key"
+
+  install -m 755 "$SCRIPT_DIR/firstboot-secureboot.sh" /mnt/usr/local/sbin/vivobook-secureboot
+  cat > /mnt/etc/systemd/system/vivobook-secureboot.service <<'EOF'
+[Unit]
+Description=Secure Boot + TPM2 (configuração automática do Vivobook)
+After=local-fs.target
+ConditionPathExists=/var/lib/vivobook/enroll.key
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/vivobook-secureboot
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  arch-chroot /mnt systemctl enable vivobook-secureboot.service
+fi
+
+# ---------------------------------------------------------------- fim
+cleanup
+cp "$LOG" /mnt/var/log/vivobook-install.log 2>/dev/null || true
+
+{
+  echo
+  echo "====================================================================="
+  echo " Instalação concluída."
+  echo "====================================================================="
+  if ((${#WARNINGS[@]})); then
+    echo " Avisos:"
+    printf '   - %s\n' "${WARNINGS[@]}"
+    echo
+  fi
+  if (( DO_SB )); then
+    if (( SB_ENROLLED )); then
+      echo " Secure Boot: chaves já registradas. Ao reiniciar, entre no BIOS (F2)"
+      echo "   e ATIVE 'Secure Boot Control'. No boot seguinte o TPM é registrado"
+      echo "   sozinho; a partir daí o disco desbloqueia sem senha."
+    else
+      echo " Secure Boot: o firmware não estava em Setup Mode. Ao reiniciar, BIOS (F2) →"
+      echo "   Security → Secure Boot → Key Management → apagar todas as chaves."
+      echo "   O sistema registra as chaves no boot e avisa quando ativar o Secure Boot."
+    fi
+    echo
+  fi
+  if [[ -n $RECOVERY_KEY ]]; then
+    echo " CHAVE DE RECUPERAÇÃO DO DISCO — anote/fotografe e guarde FORA do notebook:"
+    echo
+    echo "   $RECOVERY_KEY"
+    echo
+  fi
+  echo " Log: /var/log/vivobook-install.log"
+} > /dev/tty
