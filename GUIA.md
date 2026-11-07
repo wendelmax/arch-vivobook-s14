@@ -17,7 +17,7 @@ kernel compilado para Arrow Lake (`-march=native`) · Hyprland com identidade Ar
    ```
    O hash precisa bater com o do `sha256sums.txt`.
 3. **Pendrive com Ventoy** (<https://www.ventoy.net>): instale o Ventoy no pendrive (apaga o pendrive)
-   e copie para ele a ISO **e a pasta `arch-linux` inteira** (esta pasta).
+   e copie a ISO para ele. Os scripts são baixados do GitHub durante a instalação.
 4. **BIOS** (ligar segurando **F2**, depois **F7** para o modo avançado):
    - `Security → Secure Boot → Secure Boot Control` = **Disabled**
    - `Advanced → VMD setup menu → Enable VMD controller` = **Disabled**
@@ -39,17 +39,17 @@ iwctl
   exit
 ping -c2 archlinux.org
 
-# Pegar os scripts do pendrive Ventoy
-mkdir -p /root/usb && mount -L Ventoy /root/usb
-cp -r /root/usb/arch-linux /root/
-umount /root/usb
+# Baixar os scripts
+pacman -Sy --noconfirm git
+git clone https://github.com/wendelmax/arch-vivobook-s14 /root/arch-linux
 
 # Instalar (pergunta usuário, confirmação "APAGAR", senha do LUKS e senhas)
 bash /root/arch-linux/scripts/install.sh
 ```
 
-> Se `mount -L Ventoy` falhar, copie a pasta para um **segundo pendrive** FAT32,
-> veja o dispositivo com `lsblk` e monte com `mount /dev/sdX1 /root/usb`.
+> Sem GitHub? Copie esta pasta para o pendrive Ventoy e use
+> `mkdir -p /root/usb && mount -L Ventoy /root/usb && cp -r /root/usb/arch-linux /root/`.
+> Se o mount falhar, use um segundo pendrive FAT32 (`lsblk`, depois `mount /dev/sdX1 /root/usb`).
 
 Ao terminar:
 
