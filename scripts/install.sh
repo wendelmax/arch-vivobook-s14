@@ -296,7 +296,9 @@ EOF
 fi
 
 # Etapas seguintes rodam como usuário e precisam de sudo sem senha (removido no fim)
-echo "$USERNAME ALL=(ALL:ALL) NOPASSWD: ALL" > /mnt/etc/sudoers.d/99-install
+# (SNAP_PAC_SKIP: sem snapshots do snap-pac durante a instalação)
+printf 'Defaults env_keep += "SNAP_PAC_SKIP"\n%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$USERNAME" \
+  > /mnt/etc/sudoers.d/99-install
 chmod 440 /mnt/etc/sudoers.d/99-install
 
 # ---------------------------------------------------------------- Secure Boot (chaves)
@@ -318,17 +320,17 @@ fi
 # ---------------------------------------------------------------- pós-instalação
 if (( DO_POST )); then
   step "Pós-instalação: sistema"
-  arch-chroot /mnt env NONINTERACTIVE=1 bash "$U_DIR/setup-system.sh" \
+  arch-chroot /mnt env NONINTERACTIVE=1 SNAP_PAC_SKIP=y bash "$U_DIR/setup-system.sh" \
     || warn "pós-instalação (sistema) falhou — rode ~/arch-linux/scripts/post-install.sh depois"
   step "Pós-instalação: usuário"
-  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 bash "$U_DIR/setup-user.sh" \
+  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 SNAP_PAC_SKIP=y bash "$U_DIR/setup-user.sh" \
     || warn "pós-instalação (usuário) falhou — rode ~/arch-linux/scripts/post-install.sh depois"
 fi
 
 # ---------------------------------------------------------------- kernel
 if (( DO_KERNEL )); then
   step "Kernel otimizado (-march=native) — ~30–40 min"
-  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 bash "$U_DIR/build-kernel.sh" \
+  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 SNAP_PAC_SKIP=y bash "$U_DIR/build-kernel.sh" \
     || warn "compilação do kernel falhou — linux-lts segue como padrão; rode build-kernel.sh depois"
 fi
 

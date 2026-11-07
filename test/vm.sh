@@ -91,8 +91,8 @@ cmd_install() {
   cp "$SCRIPT_DIR/answers.env" "$VM/www/answers.env"
   echo "VB_REPO_URL=http://10.0.2.2:$PORT/repo.git" >> "$VM/www/answers.env"
   python3 -m http.server "$PORT" --bind 0.0.0.0 --directory "$VM/www" >"$VM/http.log" 2>&1 &
-  local http_pid=$!
-  trap 'kill $http_pid 2>/dev/null || true' EXIT
+  HTTP_PID=$!
+  trap 'kill "${HTTP_PID:-}" 2>/dev/null || true' EXIT
 
   echo "==> Instalando na VM (acompanhe: tail -f $VM/serial-install.log)"
   qemu_common
