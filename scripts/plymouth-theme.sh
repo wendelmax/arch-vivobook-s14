@@ -43,16 +43,30 @@ Theme=$NAME
 ShowDelay=0
 EOF
 
-# Hook do plymouth no initramfs (antes do sd-encrypt → senha na tela gráfica)
-CONF=/etc/mkinitcpio.conf.d/10-vivobook.conf
-if [[ -f $CONF ]] && ! grep -q 'plymouth' "$CONF"; then
-  sed -i 's/(base systemd /(base systemd plymouth /' "$CONF"
+# Hook do plymouth no initramfs (antes do sd-encrypt → senha na tela gráfica).
+# Lê os HOOKS efetivos (mkinitcpio.conf + drop-ins, como o mkinitcpio faz) e,
+# se faltar o plymouth, grava um drop-in final com ele logo após systemd/udev.
+effective_hooks() {
+  bash -c 'source /etc/mkinitcpio.conf
+           for f in /etc/mkinitcpio.conf.d/*.conf; do [ -e "$f" ] && source "$f"; done
+           echo "${HOOKS[*]}"'
+}
+HOOKS_NOW="$(effective_hooks)"
+if [[ " $HOOKS_NOW " != *" plymouth "* ]]; then
+  NEW=()
+  for h in $HOOKS_NOW; do
+    NEW+=("$h")
+    [[ $h == systemd || $h == udev ]] && NEW+=(plymouth)
+  done
+  [[ " ${NEW[*]} " == *" plymouth "* ]] || NEW=(base plymouth "${NEW[@]:1}")
+  echo "HOOKS=(${NEW[*]})" > /etc/mkinitcpio.conf.d/90-plymouth.conf
 fi
 
 # "splash" na linha de comando embutida na UKI. ignore-serial-consoles evita o
 # modo texto quando o firmware anuncia console serial (o systemd-stub adiciona
 # console=uart... nesse caso, e o Plymouth então desiste do modo gráfico).
 if [[ -f /etc/kernel/cmdline ]]; then
+  grep -qw quiet  /etc/kernel/cmdline || sed -i 's/$/ quiet/'  /etc/kernel/cmdline
   grep -qw splash /etc/kernel/cmdline || sed -i 's/$/ splash/' /etc/kernel/cmdline
   grep -q 'plymouth.ignore-serial-consoles' /etc/kernel/cmdline \
     || sed -i 's/$/ plymouth.ignore-serial-consoles/' /etc/kernel/cmdline
@@ -69,7 +83,8 @@ mkinitcpio -P
 
 # Com Secure Boot configurado, as UKIs recriadas precisam de nova assinatura
 if [[ -d /var/lib/sbctl/keys || -d /usr/share/secureboot/keys ]]; then
-  for f in /efi/EFI/Linux/*.efi; do sbctl sign -s "$f"; done
+  ESP="$(bootctl --print-esp-path 2>/dev/null || echo /efi)"
+  for f in "$ESP"/EFI/Linux/*.efi; do sbctl sign -s "$f"; done
 fi
 
 echo "==> Tema Plymouth '$NAME' ativo."

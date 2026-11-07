@@ -19,7 +19,6 @@ KEYMAP="${KEYMAP:-br-abnt2}"
 LOCALE="${LOCALE:-pt_BR.UTF-8}"
 MOUNT_OPTS="noatime,compress=zstd:1"
 LOG=/root/vivobook-install.log
-GUID=8be4df61-93ca-11d2-aa0d-00e098032b8c
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
@@ -32,39 +31,11 @@ PACKAGES=(
   sudo nano neovim git man-db man-pages bash-completion terminus-font
 )
 
-die()  { echo "ERRO: $*" >&2; exit 1; }
-step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
-WARNINGS=()
-warn() { echo "AVISO: $*" >&2; WARNINGS+=("$*"); }
-
-ask_secret() {   # $1 = descrição; imprime a senha confirmada em stdout
-  local a b
-  while :; do
-    read -rsp "$1: " a; echo >&2
-    read -rsp "Repita: " b; echo >&2
-    [[ -n $a && $a == "$b" ]] && { printf '%s' "$a"; return; }
-    echo "Senhas vazias ou diferentes, tente de novo." >&2
-  done
-}
-ask_yes() { local a; read -rp "$1 [S/n] " a; [[ -z $a || $a =~ ^[SsYy] ]]; }
-efivar_is_1() {
-  local f="/sys/firmware/efi/efivars/$1-$GUID"
-  [[ -r $f ]] && [[ $(od -An -t u1 "$f" | awk '{print $NF}') == 1 ]]
-}
-
-# Wi-Fi conectado no live via iwd (quando não veio por WIFI_SSID/WIFI_PASS)
-detect_iwd_wifi() {
-  local f name pass
-  for f in /var/lib/iwd/*.psk; do
-    [[ -f $f ]] || continue
-    pass="$(sed -n 's/^Passphrase=//p' "$f")"
-    [[ -n $pass ]] || continue
-    name="$(basename "$f" .psk)"
-    if [[ $name == =* ]]; then name="$(printf '%s' "${name#=}" | sed 's/../\\x&/g')"; name="$(printf '%b' "$name")"; fi
-    WIFI_SSID="$name"; WIFI_PASS="$pass"
-    return
-  done
-}
+MNT=/mnt
+# shellcheck source=lib/common.sh
+source "$SCRIPT_DIR/lib/common.sh"
+# shellcheck source=lib/stages.sh
+source "$SCRIPT_DIR/lib/stages.sh"
 
 # ---------------------------------------------------------------- verificações
 [[ $EUID -eq 0 ]] || die "execute como root"
@@ -89,10 +60,6 @@ EOF
 
 # Cada resposta pode vir pronta de uma variável VB_* (modo sem perguntas,
 # usado por "vivobook.answers=" no boot e pelos testes em VM).
-yes_or_ask() {   # $1 = valor VB_* (1/0 ou vazio), $2 = pergunta
-  if [[ -n $1 ]]; then [[ $1 == 1 ]]; else ask_yes "$2"; fi
-}
-
 USERNAME="${VB_USERNAME:-}"
 until [[ $USERNAME =~ ^[a-z_][a-z0-9_-]*$ ]]; do
   read -rp "Nome do usuário (minúsculas): " USERNAME
@@ -106,16 +73,7 @@ USER_PASS="${VB_USER_PASS:-$(ask_secret "Senha do usuário $USERNAME")}"
 ROOT_PASS="${VB_ROOT_PASS:-$(ask_secret "Senha do root (administração/emergência)")}"
 LUKS_PASS="${VB_LUKS_PASS:-$(ask_secret "Senha da criptografia do disco (pedida no boot até o TPM ser ativado)")}"
 
-echo
-yes_or_ask "${VB_POST:-}"   "Instalar Hyprland + visual Arch + apps (pós-instalação)?"      && DO_POST=1   || DO_POST=0
-yes_or_ask "${VB_KERNEL:-}" "Compilar o kernel otimizado para este CPU agora (+30–40 min)?" && DO_KERNEL=1 || DO_KERNEL=0
-yes_or_ask "${VB_SB:-}"     "Configurar Secure Boot + desbloqueio automático pelo TPM?"     && DO_SB=1     || DO_SB=0
-
-[[ -n ${WIFI_SSID:-} ]] || detect_iwd_wifi
-if [[ -z ${WIFI_SSID:-} && -z ${VB_CONFIRM:-} ]] && ask_yes "Salvar uma rede Wi-Fi no sistema instalado?"; then
-  read -rp "  SSID: " WIFI_SSID
-  WIFI_PASS="$(ask_secret "  Senha do Wi-Fi")"
-fi
+ask_optional_stages
 
 echo
 echo "Resumo:"
@@ -134,8 +92,7 @@ confirm="${VB_CONFIRM:-}"
 
 # A partir daqui tudo vai para o log (senhas nunca são impressas)
 exec > >(tee -a "$LOG") 2>&1
-cleanup() { rm -f /mnt/etc/sudoers.d/99-install 2>/dev/null || true; }
-trap cleanup EXIT
+trap stages_cleanup EXIT
 
 # ---------------------------------------------------------------- base
 step "Relógio"
@@ -259,149 +216,8 @@ EOF
 step "Senhas"
 printf 'root:%s\n%s:%s\n' "$ROOT_PASS" "$USERNAME" "$USER_PASS" | arch-chroot /mnt chpasswd
 
-step "Copiando scripts para /home/$USERNAME/arch-linux"
-cp -r "$REPO_DIR" "/mnt/home/$USERNAME/arch-linux"
-arch-chroot /mnt chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/arch-linux"
-U_DIR="/home/$USERNAME/arch-linux/scripts"
-
-step "Tela de boot (Plymouth com identidade Arch)"
-arch-chroot /mnt bash "$U_DIR/plymouth-theme.sh" \
-  || warn "tema do Plymouth falhou — rode: sudo ~/arch-linux/scripts/plymouth-theme.sh"
-
-# ---------------------------------------------------------------- Wi-Fi
-if [[ -n ${WIFI_SSID:-} && -n ${WIFI_PASS:-} ]]; then
-  step "Salvando Wi-Fi \"$WIFI_SSID\" no NetworkManager"
-  nm="/mnt/etc/NetworkManager/system-connections/wifi-$(printf '%s' "$WIFI_SSID" | tr -c 'A-Za-z0-9_-' '_').nmconnection"
-  cat > "$nm" <<EOF
-[connection]
-id=$WIFI_SSID
-type=wifi
-autoconnect=true
-
-[wifi]
-mode=infrastructure
-ssid=$WIFI_SSID
-
-[wifi-security]
-key-mgmt=wpa-psk
-psk=$WIFI_PASS
-
-[ipv4]
-method=auto
-
-[ipv6]
-method=auto
-EOF
-  chmod 600 "$nm"
-fi
-
-# Etapas seguintes rodam como usuário e precisam de sudo sem senha (removido no fim)
-# (SNAP_PAC_SKIP: sem snapshots do snap-pac durante a instalação)
-printf 'Defaults env_keep += "SNAP_PAC_SKIP"\n%s ALL=(ALL:ALL) NOPASSWD: ALL\n' "$USERNAME" \
-  > /mnt/etc/sudoers.d/99-install
-chmod 440 /mnt/etc/sudoers.d/99-install
-
-# ---------------------------------------------------------------- Secure Boot (chaves)
-SB_ENROLLED=0
-if (( DO_SB )); then
-  step "Secure Boot: criando chaves (sbctl)"
-  arch-chroot /mnt sbctl create-keys
-  install -d -m 700 /mnt/var/lib/vivobook
-  if efivar_is_1 SetupMode; then
-    if arch-chroot /mnt sbctl enroll-keys --microsoft; then
-      SB_ENROLLED=1
-      touch /mnt/var/lib/vivobook/enrolled
-    else
-      warn "não foi possível registrar as chaves agora; o sistema tenta de novo no boot"
-    fi
-  fi
-fi
-
-# ---------------------------------------------------------------- pós-instalação
-if (( DO_POST )); then
-  step "Pós-instalação: sistema"
-  arch-chroot /mnt env NONINTERACTIVE=1 SNAP_PAC_SKIP=y bash "$U_DIR/setup-system.sh" \
-    || warn "pós-instalação (sistema) falhou — rode ~/arch-linux/scripts/post-install.sh depois"
-  step "Pós-instalação: usuário"
-  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 SNAP_PAC_SKIP=y bash "$U_DIR/setup-user.sh" \
-    || warn "pós-instalação (usuário) falhou — rode ~/arch-linux/scripts/post-install.sh depois"
-fi
-
-# ---------------------------------------------------------------- kernel
-if (( DO_KERNEL )); then
-  step "Kernel otimizado (-march=native) — ~30–40 min"
-  arch-chroot /mnt sudo -u "$USERNAME" -H env NONINTERACTIVE=1 SNAP_PAC_SKIP=y bash "$U_DIR/build-kernel.sh" \
-    || warn "compilação do kernel falhou — linux-lts segue como padrão; rode build-kernel.sh depois"
-fi
-
-# ---------------------------------------------------------------- Secure Boot (assinaturas + TPM)
-RECOVERY_KEY=""
-if (( DO_SB )); then
-  step "Secure Boot: assinando bootloader e kernels"
-  arch-chroot /mnt /bin/bash -e <<'EOF'
-sbctl sign -s -o /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed /usr/lib/systemd/boot/efi/systemd-bootx64.efi
-bootctl install --esp-path=/efi
-for f in /efi/EFI/Linux/*.efi; do sbctl sign -s "$f"; done
-sbctl verify || true
-EOF
-
-  step "TPM2: preparando registro automático no primeiro boot com Secure Boot ativo"
-  KEY=/mnt/var/lib/vivobook/enroll.key
-  dd if=/dev/urandom of="$KEY" bs=64 count=1 status=none
-  chmod 400 "$KEY"
-  printf '%s' "$LUKS_PASS" | cryptsetup luksAddKey --batch-mode --key-file=- "$ROOT" "$KEY"
-  RECOVERY_KEY="$(systemd-cryptenroll --unlock-key-file="$KEY" --recovery-key "$ROOT" 2>/dev/null \
-    | grep -Eo '([cbdefghijklnrtuv]{8}-){7}[cbdefghijklnrtuv]{8}' | head -1 || true)"
-  [[ -n $RECOVERY_KEY ]] || warn "não foi possível gerar a chave de recuperação; gere depois com: sudo systemd-cryptenroll /dev/disk/by-partlabel/cryptroot --recovery-key"
-
-  install -m 755 "$SCRIPT_DIR/firstboot-secureboot.sh" /mnt/usr/local/sbin/vivobook-secureboot
-  cat > /mnt/etc/systemd/system/vivobook-secureboot.service <<'EOF'
-[Unit]
-Description=Secure Boot + TPM2 (configuração automática do Vivobook)
-After=local-fs.target
-ConditionPathExists=/var/lib/vivobook/enroll.key
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/vivobook-secureboot
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  arch-chroot /mnt systemctl enable vivobook-secureboot.service
-fi
+run_stages
 
 # ---------------------------------------------------------------- fim
-cleanup
 cp "$LOG" /mnt/var/log/vivobook-install.log 2>/dev/null || true
-
-{
-  echo
-  echo "====================================================================="
-  echo " Instalação concluída."
-  echo "====================================================================="
-  if ((${#WARNINGS[@]})); then
-    echo " Avisos:"
-    printf '   - %s\n' "${WARNINGS[@]}"
-    echo
-  fi
-  if (( DO_SB )); then
-    if (( SB_ENROLLED )); then
-      echo " Secure Boot: chaves já registradas. Ao reiniciar, entre no BIOS (F2)"
-      echo "   e ATIVE 'Secure Boot Control'. No boot seguinte o TPM é registrado"
-      echo "   sozinho; a partir daí o disco desbloqueia sem senha."
-    else
-      echo " Secure Boot: o firmware não estava em Setup Mode. Ao reiniciar, BIOS (F2) →"
-      echo "   Security → Secure Boot → Key Management → apagar todas as chaves."
-      echo "   O sistema registra as chaves no boot e avisa quando ativar o Secure Boot."
-    fi
-    echo
-  fi
-  if [[ -n $RECOVERY_KEY ]]; then
-    echo " CHAVE DE RECUPERAÇÃO DO DISCO — anote/fotografe e guarde FORA do notebook:"
-    echo
-    echo "   $RECOVERY_KEY"
-    echo
-  fi
-  echo " Log: /var/log/vivobook-install.log"
-} > /dev/tty
+print_summary

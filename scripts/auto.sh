@@ -10,6 +10,7 @@
 #   VB_NO_FETCH=1            usa só os scripts embutidos na ISO
 #   VB_AFTER=reboot|poweroff ação no fim, sem esperar Enter
 #   VB_SERIAL=1              espelha a saída em /dev/ttyS0 (testes em VM)
+#   VB_MODE=auto|archinstall instalador (sem o menu de escolha)
 set -uo pipefail
 
 REPO_URL="https://github.com/wendelmax/arch-vivobook-s14"
@@ -86,11 +87,27 @@ if [[ ${VB_NO_FETCH:-} != 1 ]]; then
   fi
 fi
 
-if [[ -z ${VB_CONFIRM:-} ]]; then
-  echo
-  read -rp "Pressione Enter para iniciar a instalação (Ctrl+C cancela)... " _
-fi
-if ! bash "$DIR/scripts/install.sh"; then
+MODE="${VB_MODE:-}"
+until [[ $MODE == auto || $MODE == archinstall ]]; do
+  cat <<'EOF'
+
+Como instalar?
+  1) Automática do Vivobook  — perguntas no início, depois segue sozinha (recomendada)
+  2) archinstall             — menu oficial com as nossas configurações pré-carregadas,
+                               para revisar/ajustar tudo antes de instalar
+  3) Sair para o shell
+EOF
+  read -rp "Opção [1]: " op
+  case ${op:-1} in
+    1) MODE=auto ;;
+    2) MODE=archinstall ;;
+    3) exit 0 ;;
+  esac
+done
+INSTALLER="$DIR/scripts/install.sh"
+[[ $MODE == archinstall ]] && INSTALLER="$DIR/scripts/archinstall-run.sh"
+
+if ! bash "$INSTALLER"; then
   echo "VIVOBOOK-INSTALL: FALHOU"
   echo "A instalação falhou. Você está no shell do live ISO (log: /root/vivobook-install.log)."
   exit 1
