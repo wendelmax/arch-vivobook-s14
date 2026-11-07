@@ -13,6 +13,8 @@ PAC=(--needed)
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
 PKGS=(
+  # Compilação (makepkg: paru, kernel) — o archinstall não instala base-devel
+  base-devel
   # GPU Intel
   mesa vulkan-intel intel-media-driver libva-utils intel-gpu-tools
   # Áudio

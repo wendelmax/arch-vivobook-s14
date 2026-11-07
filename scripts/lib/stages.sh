@@ -107,6 +107,8 @@ stage_post() {
 stage_kernel() {
   (( DO_KERNEL )) || return 0
   step "Kernel otimizado (-march=native) — ~30–40 min"
+  in_target pacman -S --needed --noconfirm base-devel git \
+    || warn "não foi possível instalar base-devel/git para compilar o kernel"
   as_user bash "$U_DIR/build-kernel.sh" \
     || warn "compilação do kernel falhou — linux-lts segue como padrão; rode build-kernel.sh depois"
 }
