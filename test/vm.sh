@@ -4,6 +4,8 @@
 #
 # Executar como root num Arch com /dev/kvm (ex.: WSL "archlinux"):
 #   test/vm.sh install         instala sem perguntas (test/answers.env) e desliga
+#                              (VM_ANSWERS_EXTRA="VB_KERNEL=1" sobrescreve respostas;
+#                               VM_MEM/VM_CPUS ajustam a VM)
 #   test/vm.sh boot            inicia o disco instalado em segundo plano
 #   test/vm.sh type <texto>    digita texto + Enter na VM (ex.: senha do LUKS)
 #   test/vm.sh key <tecla>     envia uma tecla (ex.: ret, esc, ctrl-alt-f2)
@@ -90,6 +92,8 @@ cmd_install() {
   git -C "$VM/www/repo.git" update-server-info
   cp "$SCRIPT_DIR/answers.env" "$VM/www/answers.env"
   echo "VB_REPO_URL=http://10.0.2.2:$PORT/repo.git" >> "$VM/www/answers.env"
+  # Sobrescritas pontuais, ex.: VM_ANSWERS_EXTRA="VB_KERNEL=1"
+  [[ -n ${VM_ANSWERS_EXTRA:-} ]] && printf '%s\n' $VM_ANSWERS_EXTRA >> "$VM/www/answers.env"
   python3 -m http.server "$PORT" --bind 0.0.0.0 --directory "$VM/www" >"$VM/http.log" 2>&1 &
   HTTP_PID=$!
   trap 'kill "${HTTP_PID:-}" 2>/dev/null || true' EXIT
