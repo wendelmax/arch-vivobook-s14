@@ -28,7 +28,10 @@ O passo a passo está em **[GUIA.md](GUIA.md)**.
 - **Disco:** Arch sozinho, ESP de 1 GiB em `/efi`, resto em LUKS2.
 - **Criptografia:** LUKS2 com desbloqueio por TPM2 (PCR 7) + Secure Boot com chaves próprias (`sbctl`).
 - **Sistema de arquivos:** Btrfs (`@`, `@home`, `@snapshots`, `@var_log`, `@var_cache`, `@var_tmp`), zstd:1, snapper + snap-pac.
-- **Boot:** systemd-boot + UKIs (kernel+initramfs+cmdline num só `.efi`, assinado).
+- **Boot:** systemd-boot + UKIs (kernel+initramfs+cmdline num só `.efi`, assinado) e Plymouth
+  com o logo do Arch sobre grafite — a senha do disco é pedida na tela gráfica.
+
+![Tela de boot](docs/plymouth-preview.png)
 - **Kernel:** `linux-cachyos` compilado localmente com `-march=native`, Clang ThinLTO, 1000 Hz; `linux-lts` oficial como reserva.
 - **Desktop:** Hyprland + Waybar + Wofi + Mako + Kitty + hyprlock/hypridle, login com greetd/tuigreet.
 - **Energia:** power-profiles-daemon, thermald, zram, bateria limitada a 80%.
@@ -44,7 +47,9 @@ scripts/setup-system.sh          Pós-instalação, parte root (pacotes, serviç
 scripts/setup-user.sh            Pós-instalação, parte usuário (paru, configs Hyprland/visual Arch)
 scripts/post-install.sh          Roda as duas partes acima manualmente, se a etapa foi pulada
 scripts/build-kernel.sh          Compila o kernel otimizado
+scripts/plymouth-theme.sh        Tela de boot Plymouth com identidade Arch
 scripts/firstboot-secureboot.sh  Serviço de boot: registra chaves do Secure Boot e o TPM2
+test/vm.sh                       Testa a ISO numa VM QEMU (UEFI + Secure Boot + TPM2 + NVMe)
 scripts/secureboot-tpm.sh        Secure Boot + TPM2 manual
 config/                     Hyprland, Waybar, Mako, Kitty, ajuste opcional do Wi-Fi
 ```

@@ -69,6 +69,7 @@ Se alguma etapa foi pulada ou falhou (o resumo final e `/var/log/vivobook-instal
 | Etapa | Comando |
 |---|---|
 | Hyprland + visual Arch + apps | `~/arch-linux/scripts/post-install.sh` |
+| Tela de boot Plymouth (Arch) | `sudo ~/arch-linux/scripts/plymouth-theme.sh` |
 | Kernel otimizado | `~/arch-linux/scripts/build-kernel.sh` (~30–40 min, ~25 GB livres) |
 | Secure Boot (Setup Mode) | `sudo ~/arch-linux/scripts/secureboot-tpm.sh keys` |
 | TPM (com Secure Boot ativo) | `sudo ~/arch-linux/scripts/secureboot-tpm.sh tpm` |

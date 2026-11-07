@@ -24,12 +24,16 @@ step "Configuração do Hyprland (identidade Arch)"
 CFG="$HOME/.config"
 mkdir -p "$CFG/hypr" "$CFG/waybar" "$CFG/mako" "$CFG/kitty"
 
-if [[ ! -f $CFG/hypr/hyprland.conf ]]; then
-  if [[ -f /usr/share/hypr/hyprland.conf ]]; then
-    cp /usr/share/hypr/hyprland.conf "$CFG/hypr/hyprland.conf"
-    sed -i 's/^\$fileManager = .*/$fileManager = thunar/' "$CFG/hypr/hyprland.conf"
+# Hyprland ≥ 0.57 usa configuração em Lua (hyprland.lua); partimos do exemplo oficial
+if [[ ! -f $CFG/hypr/hyprland.lua ]]; then
+  if [[ -f /usr/share/hypr/hyprland.lua ]]; then
+    cp /usr/share/hypr/hyprland.lua "$CFG/hypr/hyprland.lua"
+    sed -i -E \
+      -e 's|^local fileManager *= .*|local fileManager = "thunar"|' \
+      -e 's|^local menu *= .*|local menu        = "wofi --show drun"|' \
+      "$CFG/hypr/hyprland.lua"
   else
-    echo "AVISO: modelo do hyprland.conf não encontrado; abra o Hyprland uma vez e rode este script de novo."
+    echo "AVISO: /usr/share/hypr/hyprland.lua não encontrado (Hyprland instalado?)" >&2
   fi
 fi
 
@@ -41,14 +45,14 @@ for f in /usr/share/backgrounds/archlinux/{simple.png,archwave.png,small.png} \
 done
 
 cp "$REPO_DIR/config/hypr/hypridle.conf" "$CFG/hypr/"
-sed "s|@WALLPAPER@|${WALL}|" "$REPO_DIR/config/hypr/vivobook.conf" > "$CFG/hypr/vivobook.conf"
+sed "s|@WALLPAPER@|${WALL}|" "$REPO_DIR/config/hypr/vivobook.lua" > "$CFG/hypr/vivobook.lua"
 sed "s|@WALLPAPER@|${WALL}|" "$REPO_DIR/config/hypr/hyprlock.conf" > "$CFG/hypr/hyprlock.conf"
 cp "$REPO_DIR/config/waybar/config.jsonc" "$REPO_DIR/config/waybar/style.css" "$CFG/waybar/"
 cp "$REPO_DIR/config/mako/config"  "$CFG/mako/config"
 cp "$REPO_DIR/config/kitty/kitty.conf" "$CFG/kitty/kitty.conf"
 
-if [[ -f $CFG/hypr/hyprland.conf ]] && ! grep -q 'vivobook.conf' "$CFG/hypr/hyprland.conf"; then
-  echo 'source = ~/.config/hypr/vivobook.conf' >> "$CFG/hypr/hyprland.conf"
+if [[ -f $CFG/hypr/hyprland.lua ]] && ! grep -q 'require("vivobook")' "$CFG/hypr/hyprland.lua"; then
+  printf '\n-- Ajustes do notebook + identidade Arch\nrequire("vivobook")\n' >> "$CFG/hypr/hyprland.lua"
 fi
 
 # fastfetch com o logo do Arch ao abrir o terminal
