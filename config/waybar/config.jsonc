@@ -1,0 +1,78 @@
+{
+  "layer": "top",
+  "position": "top",
+  "height": 30,
+  "spacing": 6,
+
+  "modules-left": ["custom/arch", "hyprland/workspaces", "hyprland/window"],
+  "modules-center": ["clock"],
+  "modules-right": ["tray", "power-profiles-daemon", "backlight", "pulseaudio", "network", "bluetooth", "battery"],
+
+  "custom/arch": {
+    "format": "",
+    "tooltip": false,
+    "on-click": "wofi --show drun"
+  },
+
+  "hyprland/workspaces": {
+    "format": "{id}"
+  },
+
+  "hyprland/window": {
+    "max-length": 50
+  },
+
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "locale": "pt_BR.UTF-8",
+    "tooltip-format": "<tt>{calendar}</tt>"
+  },
+
+  "power-profiles-daemon": {
+    "format": "{icon}",
+    "format-icons": {
+      "performance": "",
+      "balanced": "",
+      "power-saver": ""
+    }
+  },
+
+  "backlight": {
+    "format": "󰃠 {percent}%",
+    "on-scroll-up": "brightnessctl set 5%+",
+    "on-scroll-down": "brightnessctl set 5%-"
+  },
+
+  "pulseaudio": {
+    "format": "{icon} {volume}%",
+    "format-muted": "󰝟",
+    "format-icons": { "default": ["󰕿", "󰖀", "󰕾"] },
+    "on-click": "pavucontrol"
+  },
+
+  "network": {
+    "format-wifi": "󰤨 {essid}",
+    "format-ethernet": "󰈀",
+    "format-disconnected": "󰤭",
+    "tooltip-format": "{ifname} {ipaddr} ({signalStrength}%)",
+    "on-click": "kitty nmtui"
+  },
+
+  "bluetooth": {
+    "format": "󰂯",
+    "format-disabled": "󰂲",
+    "format-connected": "󰂱 {num_connections}",
+    "on-click": "blueman-manager"
+  },
+
+  "battery": {
+    "states": { "warning": 25, "critical": 12 },
+    "format": "{icon} {capacity}%",
+    "format-charging": "󰂄 {capacity}%",
+    "format-icons": ["󰁺", "󰁼", "󰁾", "󰂀", "󰁹"]
+  },
+
+  "tray": {
+    "spacing": 8
+  }
+}

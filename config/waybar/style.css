@@ -1,0 +1,91 @@
+/* Identidade Arch Linux: azul #1793D1 sobre grafite */
+@define-color arch   #1793d1;
+@define-color archlt #4fb3e8;
+@define-color bg     #101418;
+@define-color bg2    #1c2329;
+@define-color fg     #e6e6e6;
+@define-color muted  #7f8c96;
+@define-color crit   #cc3333;
+
+* {
+  font-family: "JetBrainsMono Nerd Font", "Noto Sans", sans-serif;
+  font-size: 13px;
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+}
+
+window#waybar {
+  background: alpha(@bg, 0.92);
+  color: @fg;
+  border-bottom: 2px solid @arch;
+}
+
+#custom-arch {
+  color: @arch;
+  font-size: 18px;
+  padding: 0 12px 0 10px;
+}
+
+#workspaces button {
+  color: @muted;
+  padding: 0 8px;
+  background: transparent;
+}
+
+#workspaces button.active {
+  color: @fg;
+  background: @bg2;
+  border-bottom: 2px solid @arch;
+}
+
+#workspaces button:hover {
+  background: @bg2;
+  color: @archlt;
+}
+
+#window {
+  color: @muted;
+}
+
+#clock {
+  color: @fg;
+  font-weight: bold;
+}
+
+#tray,
+#power-profiles-daemon,
+#backlight,
+#pulseaudio,
+#network,
+#bluetooth,
+#battery {
+  padding: 0 8px;
+  color: @fg;
+}
+
+#network.disconnected,
+#pulseaudio.muted {
+  color: @muted;
+}
+
+#battery.charging {
+  color: @archlt;
+}
+
+#battery.warning:not(.charging) {
+  color: #e5a50a;
+}
+
+#battery.critical:not(.charging) {
+  color: @crit;
+}
+
+#power-profiles-daemon.performance {
+  color: @archlt;
+}
+
+tooltip {
+  background: @bg;
+  border: 1px solid @arch;
+}
