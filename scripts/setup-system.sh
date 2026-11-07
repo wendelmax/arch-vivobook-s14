@@ -3,6 +3,7 @@
 # Funciona no sistema já iniciado ou dentro do arch-chroot durante a instalação.
 #   NONINTERACTIVE=1  não pergunta nada ao pacman
 set -euo pipefail
+trap 'echo "ERRO: setup-system.sh linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 BATTERY_LIMIT="${BATTERY_LIMIT:-80}"
 PAC=(--needed)
@@ -12,6 +13,8 @@ PAC=(--needed)
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 
 PKGS=(
+  # Compilação (makepkg: paru, kernel) — o archinstall não instala base-devel
+  base-devel
   # GPU Intel
   mesa vulkan-intel intel-media-driver libva-utils intel-gpu-tools
   # Áudio

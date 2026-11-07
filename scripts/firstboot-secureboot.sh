@@ -44,4 +44,10 @@ systemd-cryptenroll "$DEV" --unlock-key-file="$KEY" --wipe-slot=tpm2 \
   --tpm2-device=auto --tpm2-pcrs=7
 cryptsetup luksRemoveKey "$DEV" "$KEY"
 shred -u "$KEY"
+
+# Recria as UKIs no sistema já iniciado. No teste em VM pelo archinstall, a UKI
+# gerada no chroot da instalação não desbloqueou pelo TPM, e a mesma
+# configuração gerada aqui desbloqueou em todos os boots seguintes.
+# O hook do sbctl assina as novas UKIs automaticamente.
+mkinitcpio -P
 status "TPM ativado: a partir do próximo boot o disco desbloqueia sozinho."

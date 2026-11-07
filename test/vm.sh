@@ -130,6 +130,21 @@ cmd_type() {
       ' ')      monitor "sendkey spc" >/dev/null ;;
       '-')      monitor "sendkey minus" >/dev/null ;;
       '.')      monitor "sendkey dot" >/dev/null ;;
+      # posições do teclado ABNT2 (console da VM em br-abnt2)
+      '/')      monitor "sendkey ro" >/dev/null ;;
+      ':')      monitor "sendkey shift-slash" >/dev/null ;;
+      '=')      monitor "sendkey equal" >/dev/null ;;
+      '_')      monitor "sendkey shift-minus" >/dev/null ;;
+      '*')      monitor "sendkey shift-8" >/dev/null ;;
+      '@')      monitor "sendkey shift-2" >/dev/null ;;
+      ',')      monitor "sendkey comma" >/dev/null ;;
+      '\')      monitor "sendkey less" >/dev/null ;;
+      '|')      monitor "sendkey shift-less" >/dev/null ;;
+      "'")      monitor "sendkey grave_accent" >/dev/null ;;
+      '"')      monitor "sendkey shift-grave_accent" >/dev/null ;;
+      '$')      monitor "sendkey shift-4" >/dev/null ;;
+      '>')      monitor "sendkey shift-dot" >/dev/null ;;
+      '<')      monitor "sendkey shift-comma" >/dev/null ;;
       *) echo "caractere não suportado: $c" >&2; exit 1 ;;
     esac
   done

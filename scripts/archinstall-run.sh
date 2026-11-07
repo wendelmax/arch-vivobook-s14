@@ -7,7 +7,8 @@
 #
 # Executar como root no ambiente live. Aceita as mesmas respostas VB_* do
 # install.sh; com VB_CONFIRM=APAGAR roda o archinstall em modo --silent.
-set -euo pipefail
+set -Eeuo pipefail
+trap 'echo "ERRO: linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 DISK="${DISK:-/dev/nvme0n1}"
 HOST_NAME="${VB_HOSTNAME:-${HOST_NAME:-vivobook}}"

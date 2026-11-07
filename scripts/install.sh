@@ -10,7 +10,8 @@
 # Variáveis opcionais: DISK, HOST_NAME, TIMEZONE, KEYMAP, LOCALE, WIFI_SSID, WIFI_PASS
 # Respostas prontas (sem perguntas): VB_USERNAME, VB_HOSTNAME, VB_USER_PASS,
 #   VB_ROOT_PASS, VB_LUKS_PASS, VB_POST, VB_KERNEL, VB_SB (1/0), VB_CONFIRM=APAGAR
-set -euo pipefail
+set -Eeuo pipefail
+trap 'echo "ERRO: linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 DISK="${DISK:-/dev/nvme0n1}"
 HOST_NAME="${HOST_NAME:-vivobook}"

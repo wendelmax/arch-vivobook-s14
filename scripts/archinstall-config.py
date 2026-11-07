@@ -22,6 +22,7 @@ import uuid
 MIB = 1024 ** 2
 
 PACKAGES = [
+    "base-devel",
     "sof-firmware", "alsa-ucm-conf", "linux-firmware",
     "cryptsetup", "tpm2-tss", "sbctl", "plymouth",
     "reflector", "git", "neovim", "nano", "man-db", "man-pages",
