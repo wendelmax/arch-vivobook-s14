@@ -34,14 +34,21 @@ Ligue segurando **Esc** e escolha o pendrive → *archlinux-vivobook*. O assiste
 
 1. Teclado ABNT2 e **Wi-Fi** (escolha a rede e digite a senha, ou conecta sozinho se embutido).
 2. Baixa a versão mais nova dos scripts do GitHub (ou usa a cópia embutida).
-3. **Perguntas — todas no início:**
+3. **Escolha o instalador:**
+   - **1) Automática do Vivobook** (recomendada) — segue abaixo.
+   - **2) archinstall** — o instalador oficial abre com tudo pré-carregado (ESP em `/efi`, LUKS2,
+     Btrfs com os mesmos subvolumes, systemd-boot + UKI, `linux-lts`, pt_BR/ABNT2, NetworkManager,
+     PipeWire, Bluetooth, zram). Você revisa/ajusta, define usuário e senhas e instala.
+     **Ao final escolha "Sair" (não reiniciar)**: as etapas extras (Wi-Fi, Plymouth, Hyprland,
+     kernel, Secure Boot/TPM) rodam em seguida, com as mesmas perguntas abaixo.
+4. **Perguntas (modo automático) — todas no início:**
    - usuário, nome do computador, senha do usuário, senha do root, senha do disco (LUKS);
    - instalar Hyprland + visual Arch? · compilar o kernel otimizado? · configurar Secure Boot + TPM?
    - resumo e confirmação digitando `APAGAR`.
-4. **Daí em diante segue sozinho** (~45–60 min com o kernel; mantenha na tomada):
+5. **Daí em diante segue sozinho** (~45–60 min com o kernel; mantenha na tomada):
    base criptografada → Wi-Fi salvo no sistema → Hyprland/visual Arch → kernel `-march=native` →
    chaves do Secure Boot e assinaturas.
-5. No fim aparece a **chave de recuperação do disco** — **fotografe/anote e guarde fora do notebook**.
+6. No fim aparece a **chave de recuperação do disco** — **fotografe/anote e guarde fora do notebook**.
    Remova o pendrive e pressione Enter para reiniciar.
 
 > Sem a ISO personalizada (ISO oficial): `loadkeys br-abnt2`, conecte com `iwctl`, depois

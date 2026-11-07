@@ -10,8 +10,12 @@ set -euo pipefail
 STATE=/var/lib/vivobook
 KEY="$STATE/enroll.key"
 STATUS=/run/vivobook-status
-DEV=/dev/disk/by-partlabel/cryptroot
 GUID=8be4df61-93ca-11d2-aa0d-00e098032b8c
+
+# Partição LUKS por trás do / (vale para o layout próprio e o do archinstall)
+root_src="$(findmnt -no SOURCE /)"; root_src="${root_src%%[*}"
+DEV="$(cryptsetup status "${root_src#/dev/mapper/}" | awk '$1 == "device:" {print $2}')"
+[[ -b $DEV ]] || { echo "partição LUKS do / não encontrada" >&2; exit 1; }
 
 efivar_is_1() {
   local f="/sys/firmware/efi/efivars/$1-$GUID"

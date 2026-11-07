@@ -43,6 +43,10 @@ iso/build.sh                     Gera ISO personalizada com instalador automáti
 scripts/auto.sh                  Assistente do boot: teclado, Wi-Fi, scripts atualizados, install.sh
 scripts/install.sh               Instalação completa: perguntas no início, depois base + Wi-Fi +
                                  pós-instalação + kernel + Secure Boot, sem intervenção
+scripts/archinstall-run.sh       Alternativa: archinstall oficial com nossa config pré-carregada,
+                                 seguido das mesmas etapas extras
+scripts/archinstall-config.py    Gera a config do archinstall 4.x para o disco real
+scripts/lib/                     Funções e etapas compartilhadas pelos dois instaladores
 scripts/setup-system.sh          Pós-instalação, parte root (pacotes, serviços, snapper, bateria)
 scripts/setup-user.sh            Pós-instalação, parte usuário (paru, configs Hyprland/visual Arch)
 scripts/post-install.sh          Roda as duas partes acima manualmente, se a etapa foi pulada

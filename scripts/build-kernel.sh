@@ -45,7 +45,8 @@ export _build_zfs=n _build_nvidia=n _build_nvidia_open=n
 export MAKEFLAGS="-j$(nproc)"
 
 PKGBASE="$(makepkg --printsrcinfo | awk -F' = ' '/^pkgbase/ {print $2; exit}')"
-UKI="/efi/EFI/Linux/arch-${PKGBASE}.efi"
+ESP="$(sudo bootctl --print-esp-path 2>/dev/null || echo /efi)"
+UKI="${ESP}/EFI/Linux/arch-${PKGBASE}.efi"
 echo "==> pkgbase: $PKGBASE | processor_opt: ${_processor_opt:-?} | UKI: $UKI"
 
 # Preset criado antes da instalação → mkinitcpio gera a UKI na ESP
@@ -60,7 +61,12 @@ MK=(--syncdeps --install --cleanbuild --clean)
 makepkg "${MK[@]}"
 
 # Torna o kernel otimizado o padrão no systemd-boot (linux-lts fica de reserva)
-sudo sed -i -E "s|^default .*|default arch-${PKGBASE}.efi|" /efi/loader/loader.conf
+LOADER="${ESP}/loader/loader.conf"
+if sudo grep -q '^default ' "$LOADER" 2>/dev/null; then
+  sudo sed -i -E "s|^default .*|default arch-${PKGBASE}.efi|" "$LOADER"
+else
+  echo "default arch-${PKGBASE}.efi" | sudo tee -a "$LOADER" >/dev/null
+fi
 
 # Se o Secure Boot já estiver configurado, garante a assinatura da nova UKI
 if sudo test -d /var/lib/sbctl/keys || sudo test -d /usr/share/secureboot/keys; then

@@ -5,11 +5,15 @@
 #   sudo ./secureboot-tpm.sh tpm    # depois de ativar o Secure Boot no BIOS
 set -euo pipefail
 
-LUKS_DEV="/dev/disk/by-partlabel/cryptroot"
 EFIVARS=/sys/firmware/efi/efivars
 GUID=8be4df61-93ca-11d2-aa0d-00e098032b8c
 
 [[ $EUID -eq 0 ]] || { echo "execute com sudo" >&2; exit 1; }
+
+# Partição LUKS por trás do / e ESP (vale para o layout próprio e o do archinstall)
+root_src="$(findmnt -no SOURCE /)"; root_src="${root_src%%[*}"
+LUKS_DEV="$(cryptsetup status "${root_src#/dev/mapper/}" | awk '$1 == "device:" {print $2}')"
+ESP="$(bootctl --print-esp-path 2>/dev/null || echo /efi)"
 
 efivar_is_1() {
   local f="$EFIVARS/$1-$GUID"
@@ -27,8 +31,8 @@ case "${1:-}" in
     sbctl enroll-keys --microsoft
     sbctl sign -s -o /usr/lib/systemd/boot/efi/systemd-bootx64.efi.signed \
       /usr/lib/systemd/boot/efi/systemd-bootx64.efi
-    bootctl install --esp-path=/efi
-    for f in /efi/EFI/Linux/*.efi; do sbctl sign -s "$f"; done
+    bootctl install --esp-path="$ESP"
+    for f in "$ESP"/EFI/Linux/*.efi; do sbctl sign -s "$f"; done
     sbctl verify
     echo
     echo "Agora reinicie, ATIVE o Secure Boot no BIOS e rode: sudo $0 tpm"
