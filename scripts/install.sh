@@ -28,7 +28,7 @@ PACKAGES=(
   base base-devel linux-lts linux-lts-headers linux-firmware intel-ucode
   sof-firmware alsa-ucm-conf
   btrfs-progs cryptsetup dosfstools tpm2-tss sbctl
-  networkmanager zram-generator reflector
+  networkmanager zram-generator reflector plymouth
   sudo nano neovim git man-db man-pages bash-completion terminus-font
 )
 
@@ -263,6 +263,10 @@ step "Copiando scripts para /home/$USERNAME/arch-linux"
 cp -r "$REPO_DIR" "/mnt/home/$USERNAME/arch-linux"
 arch-chroot /mnt chown -R "$USERNAME:$USERNAME" "/home/$USERNAME/arch-linux"
 U_DIR="/home/$USERNAME/arch-linux/scripts"
+
+step "Tela de boot (Plymouth com identidade Arch)"
+arch-chroot /mnt bash "$U_DIR/plymouth-theme.sh" \
+  || warn "tema do Plymouth falhou — rode: sudo ~/arch-linux/scripts/plymouth-theme.sh"
 
 # ---------------------------------------------------------------- Wi-Fi
 if [[ -n ${WIFI_SSID:-} && -n ${WIFI_PASS:-} ]]; then

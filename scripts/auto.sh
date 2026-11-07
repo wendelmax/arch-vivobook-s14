@@ -75,7 +75,10 @@ if [[ ${VB_NO_FETCH:-} != 1 ]]; then
   REPO_URL="${VB_REPO_URL:-$REPO_URL}"
   echo "==> Buscando a versão mais recente dos scripts ($REPO_URL)..."
   rm -rf "$LATEST"
-  if git clone -q --depth 1 "$REPO_URL" "$LATEST" 2>/dev/null && [[ -f $LATEST/scripts/install.sh ]]; then
+  # --depth não funciona em servidores HTTP simples (ex.: teste em VM): tenta sem
+  if { git clone -q --depth 1 "$REPO_URL" "$LATEST" 2>/dev/null \
+       || { rm -rf "$LATEST"; git clone -q "$REPO_URL" "$LATEST" 2>/dev/null; }; } \
+     && [[ -f $LATEST/scripts/install.sh ]]; then
     DIR="$LATEST"
     echo "    usando $(git -C "$LATEST" log -1 --format='%h %cs %s')"
   else
