@@ -36,6 +36,8 @@ O passo a passo está em **[GUIA.md](GUIA.md)**.
 ## Estrutura
 
 ```
+iso/build.sh                Gera ISO personalizada com instalador automático (rodar no WSL Arch)
+scripts/auto.sh             Assistente do boot: teclado, Wi-Fi, scripts atualizados, install.sh
 scripts/install.sh          Fase 1 — live ISO: particiona, criptografa, instala base
 scripts/post-install.sh     Fase 2 — Hyprland, serviços, snapper, visual Arch
 scripts/build-kernel.sh     Fase 3 — compila o kernel otimizado
