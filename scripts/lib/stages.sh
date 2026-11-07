@@ -34,6 +34,42 @@ EOF
     sed -i 's/$/ zswap.enabled=0/' "$MNT/etc/kernel/cmdline"
   fi
   in_target systemctl enable fstrim.timer systemd-boot-update.service || true
+
+  # Fonte do console com acentos (a padrão do archinstall não tem "ã")
+  if [[ -f $MNT/etc/vconsole.conf ]]; then
+    if grep -q '^FONT=' "$MNT/etc/vconsole.conf"; then
+      sed -i 's/^FONT=.*/FONT=ter-v20n/' "$MNT/etc/vconsole.conf"
+    else
+      echo 'FONT=ter-v20n' >> "$MNT/etc/vconsole.conf"
+    fi
+  fi
+
+  stage_systemd_initramfs
+}
+
+# O archinstall gera initramfs no estilo antigo (udev + encrypt + cryptdevice=),
+# que não sabe desbloquear pelo TPM. Converte para systemd + sd-encrypt com
+# rd.luks.name=, como no instalador automático (mantém o nome do mapeamento).
+stage_systemd_initramfs() {
+  local cmdline="$MNT/etc/kernel/cmdline" spec name uuid
+  [[ -f $cmdline ]] && grep -q 'cryptdevice=' "$cmdline" || return 0
+  step "Convertendo initramfs para systemd + sd-encrypt (necessário para o TPM)"
+
+  mkdir -p "$MNT/etc/mkinitcpio.conf.d"
+  echo 'HOOKS=(base systemd autodetect microcode modconf kms keyboard sd-vconsole block sd-encrypt filesystems fsck)' \
+    > "$MNT/etc/mkinitcpio.conf.d/10-vivobook.conf"
+  # drop-in do plymouth gerado sobre HOOKS antigos seria aplicado por último
+  grep -qw udev "$MNT/etc/mkinitcpio.conf.d/90-plymouth.conf" 2>/dev/null \
+    && rm -f "$MNT/etc/mkinitcpio.conf.d/90-plymouth.conf"
+
+  spec="$(grep -o 'cryptdevice=[^ ]*' "$cmdline")"   # cryptdevice=PARTUUID=…:root[:opções]
+  name="$(cut -d: -f2 <<<"${spec#cryptdevice=}")"
+  uuid="$(cryptsetup luksUUID "$ROOT")"
+  sed -i -E \
+    -e "s|cryptdevice=[^ ]*|rd.luks.name=$uuid=${name:-root} rd.luks.options=$uuid=tpm2-device=auto|" \
+    -e 's/ rd\.luks\.options=tpm2-device=auto//' \
+    "$cmdline"
+  in_target mkinitcpio -P
 }
 
 stage_plymouth() {
