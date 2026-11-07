@@ -55,8 +55,29 @@ else
   export _localmodcfg=no
 fi
 
+# Dependências de build com versão mínima (ex.: pahole>=1:1.32-2) que os
+# repositórios oficiais do Arch ainda não têm. Imprime as que faltam.
+missing_versioned_deps() {
+  local dep name req have
+  while read -r dep; do
+    name="${dep%%>=*}"; req="${dep#*>=}"
+    have="$(pacman -Si "$name" 2>/dev/null | awk -F': ' '/^Version/ {print $2; exit}')"
+    if [[ -z $have ]] || (( $(vercmp "$have" "$req") < 0 )); then
+      echo "$name>=$req (repositórios: ${have:-ausente})"
+    fi
+  done < <(awk -F' = ' '/^\tmakedepends = .*>=/ {print $2}' <<<"$1")
+}
+
 # (sem pipe direto para o awk: ele sai cedo e o SIGPIPE derruba o script com pipefail)
 SRCINFO="$(makepkg --printsrcinfo)"
+MISSING="$(missing_versioned_deps "$SRCINFO")"
+if [[ -n $MISSING && $_use_llvm_lto != none ]]; then
+  echo "AVISO: o build com Clang/ThinLTO precisa de versões que o Arch ainda não publicou:" >&2
+  sed 's/^/  - /' <<<"$MISSING" >&2
+  echo "AVISO: compilando com GCC (-march=native continua; só o ThinLTO fica de fora)." >&2
+  export _use_llvm_lto=none
+  SRCINFO="$(makepkg --printsrcinfo)"
+fi
 PKGBASE="$(awk -F' = ' '/^pkgbase/ {print $2; exit}' <<<"$SRCINFO")"
 [[ -n $PKGBASE ]] || { echo "não foi possível ler o pkgbase do PKGBUILD" >&2; exit 1; }
 
