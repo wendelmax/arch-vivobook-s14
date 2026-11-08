@@ -20,6 +20,9 @@ MNT="${1:-}"
 findmnt "$MNT" >/dev/null || die "$MNT não está montado (o Calamares montou o destino?)"
 findmnt "$MNT/efi" >/dev/null || die "a partição EFI não está montada em $MNT/efi"
 
+step "Relógio"
+sync_clock
+
 step "Espelhos (Brasil)"
 if command -v reflector >/dev/null; then
   reflector --country Brazil --protocol https --latest 10 --sort rate \
