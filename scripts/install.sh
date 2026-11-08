@@ -94,22 +94,58 @@ step "Relógio"
 timedatectl set-ntp true
 
 step "Particionando $DISK (EFI 1 GiB + LUKS)"
+[[ -n $LUKS_PASS ]] || die "senha da criptografia vazia"
+# Libera o disco: tentativas anteriores (mapeamento cryptroot, montagens,
+# swap) ou LVM/RAID antigos deixam partições "em uso" e o kernel não relê a
+# tabela nova — o cryptsetup falha depois com "device in use"/"not found".
 umount -R /mnt 2>/dev/null || true
+swapoff -a 2>/dev/null || true
+for part in $(lsblk -lnpo NAME "$DISK" | tail -n +2); do
+  umount -f "$part" 2>/dev/null || true
+done
+for holder in $(lsblk -lnpo NAME,TYPE "$DISK" | awk '$2 == "crypt" || $2 == "lvm" {print $1}'); do
+  cryptsetup close "$holder" 2>/dev/null || dmsetup remove --force "$holder" 2>/dev/null || true
+done
 cryptsetup close cryptroot 2>/dev/null || true
+vgchange -an 2>/dev/null || true
+mdadm --stop --scan 2>/dev/null || true
+lsblk -lnpo NAME,TYPE "$DISK" | awk '$2 != "disk" && $2 != "part"' | grep -q . \
+  && die "$DISK ainda está em uso (veja: lsblk $DISK); reinicie o live e tente de novo"
+
 wipefs -af "$DISK"
 sgdisk --zap-all "$DISK"
 sgdisk -n1:0:+1G -t1:ef00 -c1:EFI -n2:0:0 -t2:8309 -c2:cryptroot "$DISK"
-partprobe "$DISK"
+# Garante que o kernel enxerga as partições novas antes de usá-las.
+partprobe "$DISK" 2>/dev/null || blockdev --rereadpt "$DISK" 2>/dev/null || true
+udevadm settle
+for _ in $(seq 1 20); do
+  [[ -b $ESP && -b $ROOT ]] && break
+  sleep 0.5; partprobe "$DISK" 2>/dev/null || true; udevadm settle
+done
+[[ -b $ESP && -b $ROOT ]] || die "as partições novas ($ESP, $ROOT) não apareceram; reinicie o live e tente de novo"
+# Assinaturas antigas no mesmo lugar (LUKS/BitLocker/FS de antes) confundem
+# o udev e o cryptsetup.
+wipefs -af "$ESP" "$ROOT"
 udevadm settle
 
 step "Formatando partição EFI"
 mkfs.fat -F32 -n EFI "$ESP"
 
 step "Criptografia LUKS2"
-printf '%s' "$LUKS_PASS" | cryptsetup luksFormat --batch-mode --type luks2 \
-  --label cryptroot --key-file=- "$ROOT"
+luks_ok=0
+for try in 1 2 3; do
+  if printf '%s' "$LUKS_PASS" | cryptsetup luksFormat --batch-mode --type luks2 \
+       --label cryptroot --key-file=- "$ROOT"; then
+    luks_ok=1; break
+  fi
+  warn "luksFormat falhou (tentativa $try); aguardando o disco ser liberado"
+  udevadm settle; sleep 2
+done
+(( luks_ok )) || die "não foi possível criptografar $ROOT (veja a mensagem do cryptsetup acima)"
 printf '%s' "$LUKS_PASS" | cryptsetup open --key-file=- --allow-discards \
   --perf-no_read_workqueue --perf-no_write_workqueue --persistent "$ROOT" cryptroot
+udevadm settle
+[[ -b /dev/mapper/cryptroot ]] || die "/dev/mapper/cryptroot não apareceu depois de abrir o LUKS"
 LUKS_UUID="$(cryptsetup luksUUID "$ROOT")"
 
 step "Btrfs + subvolumes"
