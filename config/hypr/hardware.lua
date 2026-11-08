@@ -1,5 +1,5 @@
--- Ajustes do ASUS Vivobook S14 (S3407CA) + identidade visual Arch Linux.
--- Carregado no fim do hyprland.lua com require("vivobook"): sobrescreve o padrão.
+-- Ajustes de hardware do notebook + identidade visual Arch Linux.
+-- Carregado no fim do hyprland.lua com require("hardware"): sobrescreve o padrão.
 -- Referência: https://wiki.hypr.land/configuring/
 
 local wallpaper = "@WALLPAPER@"
@@ -60,7 +60,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("hypridle")
     hl.exec_cmd("systemctl --user start hyprpolkitagent")
     -- Avisos da configuração automática de Secure Boot/TPM (se houver pendência)
-    hl.exec_cmd([[sh -c 'sleep 4; [ -s /run/vivobook-status ] && notify-send -u critical "Secure Boot / TPM" "$(cat /run/vivobook-status)"']])
+    hl.exec_cmd([[sh -c 'sleep 4; [ -s /run/arch-install-status ] && notify-send -u critical "Secure Boot / TPM" "$(cat /run/arch-install-status)"']])
 end)
 
 -- Bloquear tela

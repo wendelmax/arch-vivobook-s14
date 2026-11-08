@@ -35,18 +35,27 @@ O passo a passo está em **[GUIA.md](GUIA.md)**.
 - **Kernel:** `linux-cachyos` compilado localmente com `-march=native`, Clang ThinLTO, 1000 Hz; `linux-lts` oficial como reserva.
 - **Desktop:** Hyprland + Waybar + Wofi + Mako + Kitty + hyprlock/hypridle, login com greetd/tuigreet.
 - **Energia:** power-profiles-daemon, thermald, zram, bateria limitada a 80%.
+- **Instalação:** assistente automático no tty1, archinstall oficial ou Calamares (gráfico);
+  os três usam o mesmo layout de disco, LUKS2, Btrfs, UKI, Secure Boot/TPM e Hyprland.
 
 ## Estrutura
 
 ```
-iso/build.sh                     Gera ISO personalizada com instalador automático (rodar no WSL Arch)
-scripts/auto.sh                  Assistente do boot: teclado, Wi-Fi, scripts atualizados, install.sh
+iso/build.sh                     Gera ISO personalizada com instalador automático e gráfico
+                                 (Calamares compilado do AUR; rodar no Arch x86_64)
+iso/calamares/                   Configuração e identidade visual do Calamares
+iso/xinitrc                      Sessão X (openbox) que abre o Calamares no tty1
+scripts/auto.sh                  Assistente do boot: teclado, Wi-Fi, scripts atualizados e menu
+                                 (automático, gráfico ou archinstall)
 scripts/install.sh               Instalação completa: perguntas no início, depois base + Wi-Fi +
                                  pós-instalação + kernel + Secure Boot, sem intervenção
+scripts/gui.sh                   Instalação gráfica: Calamares + etapas extras no terminal
+scripts/calamares-pacstrap.sh    Instala a base do sistema depois do particionamento do Calamares
+scripts/calamares-target.sh      fstab, UKI, systemd-boot e serviços do sistema instalado
 scripts/archinstall-run.sh       Alternativa: archinstall oficial com nossa config pré-carregada,
                                  seguido das mesmas etapas extras
 scripts/archinstall-config.py    Gera a config do archinstall 4.x para o disco real
-scripts/lib/                     Funções e etapas compartilhadas pelos dois instaladores
+scripts/lib/                     Funções, pacotes e etapas compartilhadas pelos instaladores
 scripts/setup-system.sh          Pós-instalação, parte root (pacotes, serviços, snapper, bateria)
 scripts/setup-user.sh            Pós-instalação, parte usuário (paru, configs Hyprland/visual Arch)
 scripts/post-install.sh          Roda as duas partes acima manualmente, se a etapa foi pulada

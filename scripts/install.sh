@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Instalação completa do Arch Linux no ASUS Vivobook S14 (S3407CA).
+# Instalação completa do Arch Linux (otimizada para Intel Core Ultra / Arrow Lake).
 # Executar como root no ambiente live do Arch ISO.
 #
 # Todas as perguntas são feitas no início; depois a instalação segue sozinha:
@@ -14,25 +14,19 @@ set -Eeuo pipefail
 trap 'echo "ERRO: linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 DISK="${DISK:-/dev/nvme0n1}"
-HOST_NAME="${HOST_NAME:-vivobook}"
+HOST_NAME="${HOST_NAME:-archlinux}"
 TIMEZONE="${TIMEZONE:-America/Sao_Paulo}"
 KEYMAP="${KEYMAP:-br-abnt2}"
 LOCALE="${LOCALE:-pt_BR.UTF-8}"
 MOUNT_OPTS="noatime,compress=zstd:1"
-LOG=/root/vivobook-install.log
+LOG=/root/arch-install.log
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
-PACKAGES=(
-  base base-devel linux-lts linux-lts-headers linux-firmware intel-ucode
-  sof-firmware alsa-ucm-conf
-  btrfs-progs cryptsetup dosfstools tpm2-tss sbctl
-  networkmanager zram-generator reflector plymouth
-  sudo nano neovim git man-db man-pages bash-completion terminus-font
-)
-
 MNT=/mnt
+# shellcheck source=lib/packages.sh
+source "$SCRIPT_DIR/lib/packages.sh"
 # shellcheck source=lib/common.sh
 source "$SCRIPT_DIR/lib/common.sh"
 # shellcheck source=lib/stages.sh
@@ -60,7 +54,7 @@ cat <<'EOF'
 EOF
 
 # Cada resposta pode vir pronta de uma variável VB_* (modo sem perguntas,
-# usado por "vivobook.answers=" no boot e pelos testes em VM).
+# usado por "arch.answers=" no boot e pelos testes em VM).
 USERNAME="${VB_USERNAME:-}"
 until [[ $USERNAME =~ ^[a-z_][a-z0-9_-]*$ ]]; do
   read -rp "Nome do usuário (minúsculas): " USERNAME
@@ -165,7 +159,7 @@ chmod 440 /mnt/etc/sudoers.d/10-wheel
 
 # initramfs systemd + desbloqueio LUKS (senha ou TPM2)
 mkdir -p /mnt/etc/mkinitcpio.conf.d
-cat > /mnt/etc/mkinitcpio.conf.d/10-vivobook.conf <<'EOF'
+cat > /mnt/etc/mkinitcpio.conf.d/10-arch.conf <<'EOF'
 HOOKS=(base systemd autodetect microcode modconf kms keyboard sd-vconsole block sd-encrypt filesystems fsck)
 EOF
 
@@ -220,5 +214,5 @@ printf 'root:%s\n%s:%s\n' "$ROOT_PASS" "$USERNAME" "$USER_PASS" | arch-chroot /m
 run_stages
 
 # ---------------------------------------------------------------- fim
-cp "$LOG" /mnt/var/log/vivobook-install.log 2>/dev/null || true
+cp "$LOG" /mnt/var/log/arch-install.log 2>/dev/null || true
 print_summary

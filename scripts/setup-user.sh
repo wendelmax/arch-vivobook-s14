@@ -46,14 +46,14 @@ for f in /usr/share/backgrounds/archlinux/{simple.png,archwave.png,small.png} \
 done
 
 cp "$REPO_DIR/config/hypr/hypridle.conf" "$CFG/hypr/"
-sed "s|@WALLPAPER@|${WALL}|" "$REPO_DIR/config/hypr/vivobook.lua" > "$CFG/hypr/vivobook.lua"
+sed "s|@WALLPAPER@|${WALL}|" "$REPO_DIR/config/hypr/hardware.lua" > "$CFG/hypr/hardware.lua"
 sed "s|@WALLPAPER@|${WALL}|" "$REPO_DIR/config/hypr/hyprlock.conf" > "$CFG/hypr/hyprlock.conf"
 cp "$REPO_DIR/config/waybar/config.jsonc" "$REPO_DIR/config/waybar/style.css" "$CFG/waybar/"
 cp "$REPO_DIR/config/mako/config"  "$CFG/mako/config"
 cp "$REPO_DIR/config/kitty/kitty.conf" "$CFG/kitty/kitty.conf"
 
-if [[ -f $CFG/hypr/hyprland.lua ]] && ! grep -q 'require("vivobook")' "$CFG/hypr/hyprland.lua"; then
-  printf '\n-- Ajustes do notebook + identidade Arch\nrequire("vivobook")\n' >> "$CFG/hypr/hyprland.lua"
+if [[ -f $CFG/hypr/hyprland.lua ]] && ! grep -q 'require("hardware")' "$CFG/hypr/hyprland.lua"; then
+  printf '\n-- Ajustes do notebook + identidade Arch\nrequire("hardware")\n' >> "$CFG/hypr/hyprland.lua"
 fi
 
 # fastfetch com o logo do Arch ao abrir o terminal
