@@ -8,7 +8,7 @@ trap 'echo "ERRO: plymouth-theme.sh linha $LINENO: $BASH_COMMAND (status $?)" >&
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 THEMES=/usr/share/plymouth/themes
-NAME=arch-vivobook
+NAME=arch-linux
 DIR="$THEMES/$NAME"
 
 [[ $EUID -eq 0 ]] || { echo "execute como root" >&2; exit 1; }
@@ -21,7 +21,7 @@ mv "$DIR/spinner.plymouth" "$DIR/$NAME.plymouth"
 install -m 644 "$REPO_DIR/config/plymouth/watermark.png" "$DIR/watermark.png"
 sed -i -E \
   -e '/^Name\[/d' \
-  -e 's|^Name=.*|Name=Arch Vivobook|' \
+  -e 's|^Name=.*|Name=Arch Linux|' \
   -e 's|^Description=.*|Description=Logo do Arch Linux sobre grafite (#1793D1)|' \
   -e "s|^ImageDir=.*|ImageDir=$DIR|" \
   -e 's|^WatermarkVerticalAlignment=.*|WatermarkVerticalAlignment=.40|' \

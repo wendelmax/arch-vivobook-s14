@@ -1,0 +1,49 @@
+# Identidade visual do instalador gráfico (Calamares) do projeto.
+# O logo (watermark.png) é copiado de config/plymouth/ pelo iso/build.sh.
+---
+componentName: archlinux
+
+welcomeStyleCalamares: true
+welcomeExpandingLogo: true
+
+windowExpanding: normal
+windowSize: 900px,580px
+windowPlacement: center
+
+sidebar: widget
+navigation: widget
+
+strings:
+  productName:         "Arch Linux"
+  shortProductName:    "Arch Linux"
+  version:             "2026.11"
+  shortVersion:        "2026.11"
+  versionedName:       "Arch Linux 2026.11"
+  shortVersionedName:  "Arch Linux 2026.11"
+  bootloaderEntryName: "Arch Linux"
+  productUrl:          "https://archlinux.org/"
+  supportUrl:          "https://wiki.archlinux.org/"
+  knownIssuesUrl:      "https://bugs.archlinux.org/"
+  releaseNotesUrl:     "https://archlinux.org/news/"
+  donateUrl:           ""
+
+images:
+  productIcon:    "watermark.png"
+  productLogo:    "watermark.png"
+  productWelcome: "watermark.png"
+
+style:
+  SidebarBackground:        "#101418"
+  SidebarText:              "#E6EDF3"
+  SidebarTextCurrent:       "#101418"
+  SidebarBackgroundCurrent: "#1793D1"
+
+# Obrigatório no Calamares 3.4. Lista de imagens = slideshow simples (sem QML),
+# exibida durante a instalação junto com o progresso das etapas.
+slideshow:
+  - "watermark.png"
+slideshowAPI: 1
+uploadServer:
+  type: none
+  url: ""
+  sizeLimit: -1

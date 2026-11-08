@@ -1,0 +1,10 @@
+#!/bin/sh
+# Sessão X do instalador gráfico (Calamares) no live ISO.
+# A janela roda sobre o openbox; ao fechar o Calamares, o X termina e o
+# gui.sh continua no terminal com as etapas próprias do projeto.
+xsetroot -solid '#101418' 2>/dev/null || true
+xset s off -dpms 2>/dev/null || true   # sem descanso de tela durante a instalação
+setxkbmap br abnt2 2>/dev/null || true
+xrdb -merge /etc/X11/xinit/xresources 2>/dev/null || true
+openbox-session &
+exec calamares

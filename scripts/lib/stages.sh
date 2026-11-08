@@ -57,7 +57,7 @@ stage_systemd_initramfs() {
 
   mkdir -p "$MNT/etc/mkinitcpio.conf.d"
   echo 'HOOKS=(base systemd autodetect microcode modconf kms keyboard sd-vconsole block sd-encrypt filesystems fsck)' \
-    > "$MNT/etc/mkinitcpio.conf.d/10-vivobook.conf"
+    > "$MNT/etc/mkinitcpio.conf.d/10-arch.conf"
   # drop-in do plymouth gerado sobre HOOKS antigos seria aplicado por último
   grep -qw udev "$MNT/etc/mkinitcpio.conf.d/90-plymouth.conf" 2>/dev/null \
     && rm -f "$MNT/etc/mkinitcpio.conf.d/90-plymouth.conf"
@@ -119,11 +119,11 @@ stage_sb_keys() {
   (( DO_SB )) || return 0
   step "Secure Boot: criando chaves (sbctl)"
   in_target sbctl create-keys
-  install -d -m 700 "$MNT/var/lib/vivobook"
+  install -d -m 700 "$MNT/var/lib/arch-secureboot"
   if efivar_is_1 SetupMode; then
     if in_target sbctl enroll-keys --microsoft; then
       SB_ENROLLED=1
-      touch "$MNT/var/lib/vivobook/enrolled"
+      touch "$MNT/var/lib/arch-secureboot/enrolled"
     else
       warn "não foi possível registrar as chaves agora; o sistema tenta de novo no boot"
     fi
@@ -170,8 +170,8 @@ sbctl verify || true
 EOF
 
   step "TPM2: preparando registro automático no primeiro boot com Secure Boot ativo"
-  key="$MNT/var/lib/vivobook/enroll.key"
-  install -d -m 700 "$MNT/var/lib/vivobook"
+  key="$MNT/var/lib/arch-secureboot/enroll.key"
+  install -d -m 700 "$MNT/var/lib/arch-secureboot"
   dd if=/dev/urandom of="$key" bs=64 count=1 status=none
   chmod 400 "$key"
   printf '%s' "$LUKS_PASS" | cryptsetup luksAddKey --batch-mode --key-file=- "$ROOT" "$key"
@@ -179,21 +179,21 @@ EOF
     | grep -Eo '([cbdefghijklnrtuv]{8}-){7}[cbdefghijklnrtuv]{8}' | head -1 || true)"
   [[ -n $RECOVERY_KEY ]] || warn "não foi possível gerar a chave de recuperação; gere depois com: sudo systemd-cryptenroll $ROOT --recovery-key"
 
-  install -m 755 "$SCRIPT_DIR/firstboot-secureboot.sh" "$MNT/usr/local/sbin/vivobook-secureboot"
-  cat > "$MNT/etc/systemd/system/vivobook-secureboot.service" <<'EOF'
+  install -m 755 "$SCRIPT_DIR/firstboot-secureboot.sh" "$MNT/usr/local/sbin/arch-secureboot"
+  cat > "$MNT/etc/systemd/system/arch-secureboot.service" <<'EOF'
 [Unit]
-Description=Secure Boot + TPM2 (configuração automática do Vivobook)
+Description=Secure Boot + TPM2 (configuração automática)
 After=local-fs.target
-ConditionPathExists=/var/lib/vivobook/enroll.key
+ConditionPathExists=/var/lib/arch-secureboot/enroll.key
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/vivobook-secureboot
+ExecStart=/usr/local/sbin/arch-secureboot
 
 [Install]
 WantedBy=multi-user.target
 EOF
-  in_target systemctl enable vivobook-secureboot.service
+  in_target systemctl enable arch-secureboot.service
 }
 
 # Todas as etapas pós-base, na ordem
@@ -239,6 +239,6 @@ print_summary() {
       echo "   $RECOVERY_KEY"
       echo
     fi
-    echo " Log: /var/log/vivobook-install.log"
+    echo " Log: /var/log/arch-install.log"
   } > /dev/tty
 }

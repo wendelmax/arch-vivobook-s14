@@ -11,9 +11,9 @@ set -Eeuo pipefail
 trap 'echo "ERRO: linha $LINENO: $BASH_COMMAND (status $?)" >&2' ERR
 
 DISK="${DISK:-/dev/nvme0n1}"
-HOST_NAME="${VB_HOSTNAME:-${HOST_NAME:-vivobook}}"
+HOST_NAME="${VB_HOSTNAME:-${HOST_NAME:-archlinux}}"
 MNT=/mnt
-LOG=/root/vivobook-install.log
+LOG=/root/arch-install.log
 CFG_DIR=/root/archinstall
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -32,7 +32,7 @@ ping -c1 -W3 archlinux.org >/dev/null 2>&1 || die "sem internet — conecte com 
 cat <<'EOF'
 
 =====================================================================
- Instalação via archinstall (com as configurações do Vivobook)
+ Instalação via archinstall (com as configurações do projeto)
  1. Responda as perguntas das etapas extras abaixo.
  2. No menu do archinstall, revise tudo e defina usuário/senhas.
  3. Ao final do archinstall, escolha "Sair" (NÃO reiniciar) para
@@ -93,5 +93,5 @@ fi
 
 run_stages --tweaks
 
-cp "$LOG" "$MNT/var/log/vivobook-install.log" 2>/dev/null || true
+cp "$LOG" "$MNT/var/log/arch-install.log" 2>/dev/null || true
 print_summary

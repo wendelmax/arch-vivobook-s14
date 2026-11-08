@@ -115,7 +115,7 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--disk", default=os.environ.get("DISK", "/dev/nvme0n1"))
     p.add_argument("--out", default="/root/archinstall")
-    p.add_argument("--hostname", default="vivobook")
+    p.add_argument("--hostname", default="archlinux")
     p.add_argument("--timezone", default="America/Sao_Paulo")
     p.add_argument("--user")
     p.add_argument("--password")

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Instalado como /usr/local/sbin/vivobook-secureboot e executado a cada boot
-# pelo vivobook-secureboot.service até concluir:
+# Instalado como /usr/local/sbin/arch-secureboot e executado a cada boot
+# pelo arch-secureboot.service até concluir:
 #   1. firmware em Setup Mode  → registra as chaves do sbctl
 #   2. Secure Boot ativo       → registra o TPM2 (PCR 7) e remove a chave temporária
-# O andamento aparece como notificação no Hyprland (/run/vivobook-status,
+# O andamento aparece como notificação no Hyprland (/run/arch-install-status,
 # recriado a cada boot enquanto houver pendência).
 set -euo pipefail
 
-STATE=/var/lib/vivobook
+STATE=/var/lib/arch-secureboot
 KEY="$STATE/enroll.key"
-STATUS=/run/vivobook-status
+STATUS=/run/arch-install-status
 GUID=8be4df61-93ca-11d2-aa0d-00e098032b8c
 
 # Partição LUKS por trás do / (vale para o layout próprio e o do archinstall)

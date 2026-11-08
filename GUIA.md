@@ -10,13 +10,17 @@ kernel compilado para Arrow Lake (`-march=native`) · Hyprland com identidade Ar
 ## 0. Preparação (ainda no Windows)
 
 1. **Backup** de tudo que importa no C:.
-2. **Gerar a ISO personalizada** pelo WSL Arch (como root):
+2. **Baixar a ISO pronta** em [Releases](https://github.com/wendelmax/arch-vivobook-s14/releases)
+   (confira o SHA-256 publicado junto) **ou gerar a ISO personalizada** pelo Arch x86_64
+   (ex.: WSL Arch, como root):
    ```bash
    cd /mnt/c/Users/<você>/Projects/arch-linux
    bash iso/build.sh                                               # Wi-Fi perguntado no boot
    # ou: WIFI_SSID="MinhaRede" WIFI_PASS="senha" bash iso/build.sh  # Wi-Fi embutido
    ```
-   Resultado: `iso/out/archlinux-vivobook-*.iso`.
+   O build compila o Calamares do AUR na primeira vez (~15 min). Para reutilizar um
+   pacote já compilado: `CALAMARES_PKG=/caminho/calamares-*.pkg.tar.zst bash iso/build.sh`.
+   Resultado: `iso/out/archlinux-custom-*.iso`.
    > A ISO com Wi-Fi embutido guarda a senha da rede em texto puro — não compartilhe.
 3. **Pendrive com Ventoy** (<https://www.ventoy.net>): instale o Ventoy (apaga o pendrive) e copie a ISO.
    Vale copiar também a ISO oficial do Arch como reserva.
@@ -30,17 +34,22 @@ kernel compilado para Arrow Lake (`-march=native`) · Hyprland com identidade Ar
 
 ## 1. Instalação (tudo numa etapa)
 
-Ligue segurando **Esc** e escolha o pendrive → *archlinux-vivobook*. O assistente abre sozinho:
+Ligue segurando **Esc** e escolha o pendrive → *archlinux-custom*. O assistente abre sozinho:
 
 1. Teclado ABNT2 e **Wi-Fi** (escolha a rede e digite a senha, ou conecta sozinho se embutido).
 2. Baixa a versão mais nova dos scripts do GitHub (ou usa a cópia embutida).
 3. **Escolha o instalador:**
-   - **1) Automática do Vivobook** (recomendada) — segue abaixo.
-   - **2) archinstall** — o instalador oficial abre com tudo pré-carregado (ESP em `/efi`, LUKS2,
+   - **1) Automática** (recomendada) — segue abaixo.
+   - **2) Gráfica (Calamares)** — interface com disco/criptografia, usuário/senhas, hostname,
+     idioma, fuso e teclado. O layout é o mesmo: ESP de 1 GiB em `/efi`, LUKS2, Btrfs com os
+     subvolumes do projeto, systemd-boot + UKI e `linux-lts`. **Ao terminar, feche a janela
+     (não reinicie)**: as etapas extras (Wi-Fi, Plymouth, Hyprland, kernel, Secure Boot/TPM)
+     continuam no terminal, com as mesmas perguntas abaixo.
+   - **3) archinstall** — o instalador oficial abre com tudo pré-carregado (ESP em `/efi`, LUKS2,
      Btrfs com os mesmos subvolumes, systemd-boot + UKI, `linux-lts`, pt_BR/ABNT2, NetworkManager,
      PipeWire, Bluetooth, zram). Você revisa/ajusta, define usuário e senhas e instala.
-     **Ao final escolha "Sair" (não reiniciar)**: as etapas extras (Wi-Fi, Plymouth, Hyprland,
-     kernel, Secure Boot/TPM) rodam em seguida, com as mesmas perguntas abaixo.
+     **Ao final escolha "Sair" (não reiniciar)**: as etapas extras rodam em seguida.
+   - **4) Sair para o shell.**
 4. **Perguntas (modo automático) — todas no início:**
    - usuário, nome do computador, senha do usuário, senha do root, senha do disco (LUKS);
    - instalar Hyprland + visual Arch? · compilar o kernel otimizado? · configurar Secure Boot + TPM?
@@ -54,9 +63,36 @@ Ligue segurando **Esc** e escolha o pendrive → *archlinux-vivobook*. O assiste
 > Sem a ISO personalizada (ISO oficial): `loadkeys br-abnt2`, conecte com `iwctl`, depois
 > `pacman -Sy --noconfirm git && git clone https://github.com/wendelmax/arch-vivobook-s14 /root/arch-linux && bash /root/arch-linux/scripts/install.sh`.
 
+### Testar antes no computador (VM)
+
+Em outro Arch x86_64 com KVM (ou numa VM), sem tocar no disco real:
+
+```bash
+sudo test/vm.sh install    # instalação automática (test/answers.env) e desliga
+sudo test/vm.sh gui        # instalação gráfica: Calamares via VNC em 127.0.0.1:5901
+sudo test/vm.sh boot       # inicia o disco instalado; type/key/shot/stop controlam a VM
+```
+
+O `gui` usa UEFI + Secure Boot em Setup Mode + TPM2 emulado + disco NVMe, como no notebook.
+Conecte no VNC (`vncviewer 127.0.0.1:5901`) e conclua o Calamares; o terminal com as etapas
+extras e o pedido da senha do LUKS aparece na mesma tela. O log fica em
+`/var/tmp/arch-vm/serial-gui.log`. No UTM, use uma VM x86_64 com UEFI e o ISO como CD-ROM
+(o Calamares também pode ser testado por lá).
+
+**No Mac (Apple Silicon):** gere a ISO num container Arch x86_64 (Docker Desktop) e rode a VM
+com emulação TCG — funciona, mas é bem mais lento que KVM:
+
+```bash
+docker run --rm --privileged --platform linux/amd64 -v "$PWD":/repo -e OUT_DIR=/repo/iso/out \
+  archlinux:latest bash -c 'sed -i "/^\[options\]/a DisableSandbox" /etc/pacman.conf;
+    pacman -Sy --noconfirm git; git config --global --add safe.directory "*"; bash /repo/iso/build.sh'
+brew install qemu swtpm xorriso
+test/vm.sh gui             # sem sudo; disco/log em ~/.cache/arch-vm
+```
+
 ## 2. Primeiros boots (Secure Boot + TPM)
 
-O serviço `vivobook-secureboot` conclui sozinho; os avisos aparecem como notificação no Hyprland.
+O serviço `arch-secureboot` conclui sozinho; os avisos aparecem como notificação no Hyprland.
 
 | Situação no fim da instalação | O que fazer |
 |---|---|
@@ -71,7 +107,7 @@ Atalhos: `SUPER+Q` terminal · `SUPER+R` menu · `SUPER+E` arquivos · `SUPER+C`
 
 ## 3. Manutenção e etapas manuais
 
-Se alguma etapa foi pulada ou falhou (o resumo final e `/var/log/vivobook-install.log` mostram), rode depois:
+Se alguma etapa foi pulada ou falhou (o resumo final e `/var/log/arch-install.log` mostram), rode depois:
 
 | Etapa | Comando |
 |---|---|
