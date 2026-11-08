@@ -109,6 +109,10 @@ add_pkg git terminus-font python reflector \
 DEST="$P/airootfs/root/arch-linux"
 mkdir -p "$DEST/iso"
 cp -r "$REPO_DIR/scripts" "$REPO_DIR/config" "$REPO_DIR/GUIA.md" "$REPO_DIR/README.md" "$DEST/"
+# Versão embutida (commit e data): o auto.sh só troca por scripts baixados
+# da internet se eles forem desta versão ou mais novos.
+git -c safe.directory='*' -C "$REPO_DIR" log -1 --format='%H %ct' > "$DEST/VERSION" 2>/dev/null \
+  || echo "unknown 0" > "$DEST/VERSION"
 cp -r "$REPO_DIR/iso/calamares" "$DEST/iso/"
 cp "$REPO_DIR/iso/xinitrc" "$DEST/iso/"
 

@@ -74,14 +74,22 @@ fi
 DIR="$EMBEDDED"
 if [[ ${VB_NO_FETCH:-} != 1 ]]; then
   REPO_URL="${VB_REPO_URL:-$REPO_URL}"
-  echo "==> Buscando a versão mais recente dos scripts ($REPO_URL)..."
+  echo "==> Buscando a versão mais recente dos scripts..."
   rm -rf "$LATEST"
   # --depth não funciona em servidores HTTP simples (ex.: teste em VM): tenta sem
   if { git clone -q --depth 1 "$REPO_URL" "$LATEST" 2>/dev/null \
        || { rm -rf "$LATEST"; git clone -q "$REPO_URL" "$LATEST" 2>/dev/null; }; } \
      && [[ -f $LATEST/scripts/install.sh ]]; then
-    DIR="$LATEST"
-    echo "    usando $(git -C "$LATEST" log -1 --format='%h %cs %s')"
+    # Nunca troca por uma versão mais antiga que a da ISO (ex.: ISO gerada de
+    # uma branch ainda não mesclada na main).
+    emb_ts=0; [[ -f $EMBEDDED/VERSION ]] && read -r _ emb_ts < "$EMBEDDED/VERSION"
+    new_ts="$(git -C "$LATEST" log -1 --format='%ct')"
+    if (( ${new_ts:-0} >= ${emb_ts:-0} )); then
+      DIR="$LATEST"
+      echo "    usando $(git -C "$LATEST" log -1 --format='%h %cs %s')"
+    else
+      echo "    a versão online é mais antiga que a da ISO; usando a cópia embutida."
+    fi
   else
     echo "    indisponível; usando a cópia embutida na ISO."
   fi
