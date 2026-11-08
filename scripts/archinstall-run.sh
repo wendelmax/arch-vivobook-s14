@@ -49,6 +49,9 @@ if (( DO_SB )) && [[ -z $LUKS_PASS ]]; then
 fi
 
 # ---------------------------------------------------------------- archinstall
+step "Relógio"
+sync_clock
+
 step "Gerando configuração do archinstall para $DISK"
 GEN=(python3 "$SCRIPT_DIR/archinstall-config.py" --disk "$DISK" --out "$CFG_DIR" --hostname "$HOST_NAME")
 [[ -n $LUKS_PASS ]] && GEN+=(--luks-password "$LUKS_PASS")

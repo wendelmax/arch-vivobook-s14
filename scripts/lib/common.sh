@@ -8,6 +8,29 @@ die()  { echo "ERRO: $*" >&2; exit 1; }
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 warn() { echo "AVISO: $*" >&2; WARNINGS+=("$*"); }
 
+# Relógio certo é obrigatório para o pacman: com a hora atrasada (comum
+# depois do Windows, que grava o RTC em hora local), assinaturas recentes
+# parecem "do futuro" e o pacstrap falha com "required key missing from
+# keyring"/"keyring is not writable". Tenta NTP; se não sincronizar, usa a
+# hora do cabeçalho HTTP de um servidor HTTPS.
+sync_clock() {
+  local i d
+  timedatectl set-ntp true 2>/dev/null || true
+  for i in $(seq 1 20); do
+    [[ $(timedatectl show -p NTPSynchronized --value 2>/dev/null) == yes ]] && return 0
+    sleep 1
+  done
+  for url in https://archlinux.org https://www.google.com https://cloudflare.com; do
+    d="$(curl -sI --max-time 10 "$url" | tr -d '\r' | sed -n 's/^[Dd]ate: //p' | head -1)"
+    if [[ -n $d ]] && date -u -s "$d" >/dev/null 2>&1; then
+      hwclock --systohc --utc 2>/dev/null || true
+      echo "    relógio ajustado pela hora de $url: $(date -u '+%F %T UTC')"
+      return 0
+    fi
+  done
+  warn "não foi possível acertar o relógio; se o pacstrap falhar com erro de chave, ajuste a hora (date -s)"
+}
+
 ask_secret() {   # $1 = descrição; imprime a senha confirmada em stdout
   local a b
   while :; do

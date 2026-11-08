@@ -91,7 +91,7 @@ trap stages_cleanup EXIT
 
 # ---------------------------------------------------------------- base
 step "Relógio"
-timedatectl set-ntp true
+sync_clock
 
 step "Particionando $DISK (EFI 1 GiB + LUKS)"
 [[ -n $LUKS_PASS ]] || die "senha da criptografia vazia"

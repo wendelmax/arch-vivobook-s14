@@ -47,6 +47,7 @@ ask_optional_stages
 
 # ---------------------------------------------------------------- Calamares
 step "Preparando o instalador gráfico"
+sync_clock
 # Os scripts usados pelo Calamares (shellprocess) ficam sempre no repo ativo.
 rm -rf /run/arch-install
 ln -s "$REPO_DIR" /run/arch-install
